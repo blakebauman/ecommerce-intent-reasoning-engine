@@ -27,43 +27,34 @@ A reasoning engine for eCommerce intent classification and resolution. This is n
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.12-3.13 (spaCy not yet compatible with 3.14)
 - Docker and Docker Compose
-- Anthropic API key
+- [just](https://github.com/casey/just) command runner (recommended)
+- Anthropic API key (optional for fast-path only mode)
 
 ### Setup
 
-1. Clone the repository and set up environment:
-
 ```bash
+# 1. Clone and configure
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys (ANTHROPIC_API_KEY for LLM reasoning)
+
+# 2. Start infrastructure and API via Docker (recommended)
+just up          # Start postgres, redis, and API
+just seed        # Seed intent catalog (279 examples)
+
+# Or for local development:
+just setup       # Create venv and install dependencies
+just infra       # Start postgres and redis only
+just seed        # Seed intent catalog
+just dev         # Run API locally with hot reload
 ```
 
-2. Start infrastructure:
+### Verify It Works
 
 ```bash
-docker-compose up -d postgres redis
-```
-
-3. Install dependencies:
-
-```bash
-pip install uv
-uv pip install -e ".[dev]"
-python -m spacy download en_core_web_sm
-```
-
-4. Seed the intent catalog:
-
-```bash
-python scripts/seed_catalog.py
-```
-
-5. Run the API:
-
-```bash
-uvicorn intent_engine.api.server:app --reload
+just health                           # Check API health
+just resolve "Where is my order?"     # Test intent resolution
 ```
 
 ### Usage
@@ -110,23 +101,73 @@ curl -X POST http://localhost:8000/v1/intent/resolve \
 
 ## Development
 
+This project uses [just](https://github.com/casey/just) as a command runner. Run `just` to see all available commands.
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| **Setup** | |
+| `just setup` | Create virtual environment and install dependencies |
+| `just install` | Install dependencies only |
+| **Docker** | |
+| `just up` | Start all services (postgres, redis, api) |
+| `just infra` | Start infrastructure only (postgres, redis) |
+| `just down` | Stop all services |
+| `just logs [service]` | View logs (default: api) |
+| `just restart [service]` | Restart a service |
+| **Database** | |
+| `just seed` | Seed the intent catalog |
+| `just seed-refresh` | Clear and re-seed catalog |
+| `just psql` | Connect to PostgreSQL |
+| **Development** | |
+| `just dev` | Run API locally with hot reload |
+| `just api` | Run API via Docker |
+| **Testing** | |
+| `just test` | Run all tests |
+| `just test-cov` | Run tests with coverage |
+| `just test-unit` | Run unit tests only |
+| `just test-int` | Run integration tests only |
+| **Evaluation** | |
+| `just eval` | Run evaluation on golden set |
+| `just eval-save` | Run evaluation and save results |
+| **Code Quality** | |
+| `just lint` | Run linter |
+| `just lint-fix` | Run linter and fix issues |
+| `just fmt` | Format code |
+| `just typecheck` | Run type checker |
+| `just check` | Run all checks |
+| **API Testing** | |
+| `just health` | Health check |
+| `just resolve "text"` | Test intent resolution |
+| `just intents` | List available intents |
+| `just catalog` | Get catalog stats |
+| **Cleanup** | |
+| `just clean` | Remove Docker volumes and containers |
+| `just clean-cache` | Remove Python cache files |
+
 ### Run Tests
 
 ```bash
-pytest tests/ -v
+just test           # All tests
+just test-unit      # Unit tests only
+just test-cov       # With coverage report
 ```
 
 ### Run Evaluation
 
 ```bash
-python scripts/run_eval.py
+just eval           # Run against golden set
+just eval-save      # Save results to file
 ```
 
 ### Lint and Format
 
 ```bash
-ruff check src/ tests/
-ruff format src/ tests/
+just lint           # Check for issues
+just lint-fix       # Auto-fix issues
+just fmt            # Format code
+just check          # Run all checks
 ```
 
 ## Architecture
