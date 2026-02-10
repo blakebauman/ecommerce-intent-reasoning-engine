@@ -54,6 +54,14 @@ class ExtractionResult(BaseModel):
     sentiment_score: float = Field(default=0.0, ge=-1.0, le=1.0)
     urgency_score: float = Field(default=0.0, ge=0.0, le=1.0)
     frustration_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    priority_flag: bool = Field(
+        default=False,
+        description="True if message should be routed to priority queue",
+    )
+    sentiment_signals: list[str] = Field(
+        default_factory=list,
+        description="Detected sentiment/frustration signals",
+    )
     embedding: list[float] = Field(
         default_factory=list,
         description="Semantic embedding vector (384 dims for MiniLM)",

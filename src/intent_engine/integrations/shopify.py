@@ -1,4 +1,4 @@
-"""Shopify Admin API connector (read-only)."""
+"""Shopify Admin API connector (read-only) with customer profile support."""
 
 from datetime import datetime, timedelta
 from typing import Any
@@ -13,6 +13,14 @@ from intent_engine.integrations.base import (
     PlatformConnector,
     ShippingAddress,
     TrackingInfo,
+)
+from intent_engine.models.context import (
+    CustomerProfile,
+    CustomerTier,
+    OrderContext,
+    ProductContext,
+    ReturnEligibility,
+    WarrantyStatus,
 )
 
 
@@ -315,3 +323,255 @@ class ShopifyConnector(PlatformConnector):
             return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
         except ValueError:
             return None
+
+    # =========================================================================
+    # Phase 2: Customer Profile and Context Enrichment Methods
+    # =========================================================================
+
+    async def get_customer_by_email(self, email: str) -> CustomerProfile | None:
+        """
+        Fetch customer profile by email address.
+
+        Args:
+            email: Customer email address.
+
+        Returns:
+            CustomerProfile if found, None otherwise.
+        """
+        data = await self._request(
+            "GET",
+            "/customers/search.json",
+            params={"query": f"email:{email}"},
+        )
+
+        if not data or "customers" not in data or not data["customers"]:
+            return None
+
+        customer_data = data["customers"][0]
+        return await self._build_customer_profile(customer_data)
+
+    async def get_customer_by_id(self, customer_id: str) -> CustomerProfile | None:
+        """
+        Fetch customer profile by Shopify customer ID.
+
+        Args:
+            customer_id: Shopify customer ID.
+
+        Returns:
+            CustomerProfile if found, None otherwise.
+        """
+        data = await self._request("GET", f"/customers/{customer_id}.json")
+
+        if not data or "customer" not in data:
+            return None
+
+        return await self._build_customer_profile(data["customer"])
+
+    async def _build_customer_profile(self, customer_data: dict) -> CustomerProfile:
+        """Build CustomerProfile from Shopify customer data."""
+        customer_id = str(customer_data["id"])
+        email = customer_data.get("email", "")
+
+        # Calculate lifetime value and order count
+        total_spent = float(customer_data.get("total_spent", "0"))
+        orders_count = customer_data.get("orders_count", 0)
+
+        # Parse first order date
+        first_order_date = self._parse_datetime(customer_data.get("created_at"))
+
+        # Determine tier based on spending and order history
+        tier = self._determine_customer_tier(total_spent, orders_count, customer_data)
+
+        # Get recent activity (would need additional API calls in real implementation)
+        # For now, we estimate based on available data
+
+        return CustomerProfile(
+            customer_id=customer_id,
+            email=email,
+            name=f"{customer_data.get('first_name', '')} {customer_data.get('last_name', '')}".strip(),
+            tier=tier,
+            lifetime_value=total_spent,
+            total_orders=orders_count,
+            first_order_date=first_order_date,
+            # Additional fields would require more API calls
+            support_tickets_30d=0,  # Would come from support system
+            complaints_90d=0,
+            returns_90d=0,
+            preferred_contact="email",
+            language=customer_data.get("locale", "en")[:2] if customer_data.get("locale") else "en",
+            is_vip=tier == CustomerTier.VIP,
+            is_at_risk=customer_data.get("state") == "disabled",
+        )
+
+    def _determine_customer_tier(
+        self,
+        total_spent: float,
+        orders_count: int,
+        customer_data: dict,
+    ) -> CustomerTier:
+        """Determine customer tier based on value and history."""
+        tags = customer_data.get("tags", "").lower()
+
+        # Check for explicit tags
+        if "vip" in tags:
+            return CustomerTier.VIP
+        if "premium" in tags:
+            return CustomerTier.PREMIUM
+        if "flagged" in tags or "fraud" in tags:
+            return CustomerTier.FLAGGED
+        if "at_risk" in tags or "churn" in tags:
+            return CustomerTier.AT_RISK
+
+        # Tier by value
+        if total_spent >= 1000 or orders_count >= 20:
+            return CustomerTier.VIP
+        if total_spent >= 500 or orders_count >= 10:
+            return CustomerTier.PREMIUM
+        if orders_count == 0:
+            return CustomerTier.NEW
+
+        return CustomerTier.STANDARD
+
+    async def get_order_context(self, order_id: str) -> OrderContext | None:
+        """
+        Get enriched order context for policy decisions.
+
+        Args:
+            order_id: Shopify order ID.
+
+        Returns:
+            OrderContext with policy-relevant data.
+        """
+        order_info = await self.get_order(order_id)
+        if not order_info:
+            return None
+
+        return self._build_order_context(order_info)
+
+    async def get_order_context_by_number(self, order_number: str) -> OrderContext | None:
+        """
+        Get enriched order context by order number.
+
+        Args:
+            order_number: Customer-facing order number.
+
+        Returns:
+            OrderContext with policy-relevant data.
+        """
+        order_info = await self.get_order_by_number(order_number)
+        if not order_info:
+            return None
+
+        return self._build_order_context(order_info)
+
+    def _build_order_context(self, order_info: OrderInfo) -> OrderContext:
+        """Build OrderContext from OrderInfo."""
+        now = datetime.utcnow()
+
+        # Build product contexts
+        items = [
+            ProductContext(
+                product_id=item.product_id,
+                sku=item.sku,
+                name=item.name,
+                price=item.price,
+                currency=item.currency,
+                is_returnable=True,  # Would come from product metadata
+                return_window_days=self.return_window_days,
+            )
+            for item in order_info.line_items
+        ]
+
+        # Calculate return window status
+        days_until_return_expires = None
+        is_within_return_window = True
+        return_eligibility = ReturnEligibility.ELIGIBLE
+
+        if order_info.return_window_ends:
+            delta = order_info.return_window_ends - now
+            days_until_return_expires = delta.days
+            is_within_return_window = delta.total_seconds() > 0
+
+            if not is_within_return_window:
+                return_eligibility = ReturnEligibility.EXPIRED
+        elif order_info.created_at:
+            window_end = order_info.created_at + timedelta(days=self.return_window_days)
+            delta = window_end - now
+            days_until_return_expires = delta.days
+            is_within_return_window = delta.total_seconds() > 0
+
+            if not is_within_return_window:
+                return_eligibility = ReturnEligibility.EXPIRED
+
+        # Extract tracking info
+        tracking_number = None
+        carrier = None
+        tracking_url = None
+        if order_info.tracking:
+            first_tracking = order_info.tracking[0]
+            tracking_number = first_tracking.tracking_number
+            carrier = first_tracking.carrier
+            tracking_url = first_tracking.tracking_url
+
+        # Shipping address as dict
+        shipping_address = None
+        if order_info.shipping_address:
+            addr = order_info.shipping_address
+            shipping_address = {
+                "name": addr.name,
+                "address1": addr.address1,
+                "address2": addr.address2,
+                "city": addr.city,
+                "province": addr.province,
+                "country": addr.country,
+                "zip": addr.zip_code,
+            }
+
+        return OrderContext(
+            order_id=order_info.order_id,
+            order_number=order_info.order_number,
+            platform=order_info.platform,
+            status=order_info.status.value,
+            fulfillment_status=order_info.fulfillment_status.value,
+            is_cancelled=order_info.status == OrderStatus.CANCELLED,
+            customer_email=order_info.customer_email,
+            customer_name=order_info.customer_name,
+            items=items,
+            subtotal=order_info.subtotal,
+            shipping_cost=order_info.shipping_cost,
+            tax=order_info.tax,
+            total=order_info.total,
+            currency=order_info.currency,
+            created_at=order_info.created_at,
+            shipped_at=order_info.shipped_at,
+            delivered_at=order_info.delivered_at,
+            shipping_address=shipping_address,
+            tracking_number=tracking_number,
+            carrier=carrier,
+            tracking_url=tracking_url,
+            return_eligibility=return_eligibility,
+            return_window_ends=order_info.return_window_ends,
+            days_until_return_expires=days_until_return_expires,
+            is_within_return_window=is_within_return_window,
+            refund_amount=order_info.refund_amount,
+            is_fully_refunded=order_info.status == OrderStatus.REFUNDED,
+            is_partially_refunded=order_info.status == OrderStatus.PARTIALLY_REFUNDED,
+        )
+
+    async def get_customer_order_history(
+        self,
+        customer_email: str,
+        limit: int = 10,
+    ) -> list[OrderContext]:
+        """
+        Get order history as OrderContext objects.
+
+        Args:
+            customer_email: Customer email address.
+            limit: Maximum number of orders to return.
+
+        Returns:
+            List of OrderContext objects.
+        """
+        orders = await self.get_customer_orders(customer_email, limit)
+        return [self._build_order_context(order) for order in orders]

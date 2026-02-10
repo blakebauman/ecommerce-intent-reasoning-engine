@@ -1,0 +1,103 @@
+{
+  "tenant_id": "default",
+  "version": "1.0.0",
+  "description": "Default policy configuration for all tenants",
+
+  "return_policy": {
+    "default_window_days": 30,
+    "vip_window_days": 60,
+    "premium_window_days": 45,
+    "final_sale_categories": ["clearance", "final-sale", "as-is"],
+    "exchange_only_categories": ["underwear", "swimwear", "earrings"],
+    "restocking_fee_percent": 0,
+    "free_return_shipping": true,
+    "require_original_packaging": false
+  },
+
+  "auto_approval": {
+    "enabled": true,
+    "return": {
+      "max_amount_standard": 100.0,
+      "max_amount_premium": 250.0,
+      "max_amount_vip": 500.0,
+      "max_items": 5,
+      "require_within_window": true,
+      "excluded_categories": ["electronics", "jewelry"],
+      "excluded_reasons": ["changed_mind_late"]
+    },
+    "refund": {
+      "max_amount_standard": 50.0,
+      "max_amount_premium": 150.0,
+      "max_amount_vip": 300.0,
+      "require_return_received": true,
+      "instant_refund_eligible_tiers": ["vip", "premium"]
+    },
+    "replacement": {
+      "enabled": true,
+      "max_amount": 200.0,
+      "require_photo_proof": false
+    }
+  },
+
+  "escalation": {
+    "complaint_threshold": 3,
+    "complaint_window_days": 90,
+    "high_value_threshold": 500.0,
+    "repeat_contact_threshold": 5,
+    "repeat_contact_window_hours": 24,
+    "required_categories": ["legal", "discrimination", "safety"],
+    "frustration_score_threshold": 0.7,
+    "vip_always_escalate": false,
+    "auto_escalate_keywords": [
+      "lawyer",
+      "attorney",
+      "sue",
+      "lawsuit",
+      "bbb",
+      "better business bureau",
+      "attorney general",
+      "fraud",
+      "scam"
+    ]
+  },
+
+  "priority_routing": {
+    "enabled": true,
+    "vip_priority": true,
+    "high_frustration_priority": true,
+    "frustration_threshold": 0.7,
+    "high_value_order_threshold": 300.0,
+    "time_sensitive_keywords": ["urgent", "asap", "emergency", "immediately"]
+  },
+
+  "sla": {
+    "priority_response_minutes": 60,
+    "vip_response_minutes": 120,
+    "premium_response_minutes": 180,
+    "standard_response_minutes": 480,
+    "resolution_target_hours": 24
+  },
+
+  "customer_tiers": {
+    "vip": {
+      "min_lifetime_value": 1000.0,
+      "min_orders": 20,
+      "benefits": ["extended_returns", "priority_support", "instant_refund"]
+    },
+    "premium": {
+      "min_lifetime_value": 500.0,
+      "min_orders": 10,
+      "benefits": ["extended_returns", "priority_support"]
+    },
+    "standard": {
+      "min_lifetime_value": 0,
+      "min_orders": 1,
+      "benefits": []
+    },
+    "new": {
+      "min_lifetime_value": 0,
+      "min_orders": 0,
+      "benefits": ["first_order_discount"]
+    }
+  }
+}

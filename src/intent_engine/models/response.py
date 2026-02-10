@@ -1,5 +1,7 @@
 """Response models for the intent engine."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from intent_engine.models.entity import ExtractedEntity
@@ -23,6 +25,41 @@ class Constraint(BaseModel):
     hard: bool = True  # Hard constraint = must satisfy; soft = prefer
 
 
+class SentimentInfo(BaseModel):
+    """Sentiment analysis results for the request."""
+
+    sentiment_score: float = Field(default=0.0, ge=-1.0, le=1.0)
+    urgency_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    frustration_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    priority_flag: bool = False
+    signals: list[str] = Field(default_factory=list)
+
+
+class PolicyInfo(BaseModel):
+    """Policy evaluation results."""
+
+    auto_approve_return: bool = False
+    auto_approve_refund: bool = False
+    escalation_required: bool = False
+    escalation_reasons: list[str] = Field(default_factory=list)
+    return_eligible: bool = True
+    return_ineligible_reason: str | None = None
+    days_until_return_expires: int | None = None
+    recommended_action: str | None = None
+    rules_applied: list[str] = Field(default_factory=list)
+
+
+class ContextInfo(BaseModel):
+    """Enriched context information."""
+
+    customer_tier: str | None = None
+    customer_lifetime_value: float | None = None
+    order_status: str | None = None
+    order_total: float | None = None
+    is_within_return_window: bool | None = None
+    data_sources: list[str] = Field(default_factory=list)
+
+
 class ReasoningResult(BaseModel):
     """Complete output of the reasoning engine."""
 
@@ -31,6 +68,15 @@ class ReasoningResult(BaseModel):
     is_compound: bool = False
     entities: list[ExtractedEntity] = Field(default_factory=list)
     constraints: list[Constraint] = Field(default_factory=list)
+
+    # Phase 2: Sentiment analysis
+    sentiment: SentimentInfo | None = None
+
+    # Phase 2: Policy evaluation
+    policy: PolicyInfo | None = None
+
+    # Phase 2: Enriched context
+    context: ContextInfo | None = None
 
     # Response generation (simplified for MVP)
     customer_response: str | None = None  # Suggested response text
