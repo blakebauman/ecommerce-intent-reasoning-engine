@@ -1,0 +1,122 @@
+"""API middleware for authentication and logging."""
+
+import logging
+import time
+import uuid
+from typing import Callable
+
+from fastapi import HTTPException, Request, Response
+from fastapi.security import APIKeyHeader
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from intent_engine.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+# API key header
+api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
+
+
+async def verify_api_key(request: Request) -> str:
+    """
+    Verify the API key from the Authorization header.
+
+    Expected format: "Bearer <api_key>"
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        The verified API key.
+
+    Raises:
+        HTTPException: If the API key is missing or invalid.
+    """
+    settings = get_settings()
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing Authorization header",
+        )
+
+    # Parse Bearer token
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header format. Expected: Bearer <api_key>",
+        )
+
+    api_key = parts[1]
+
+    # Validate API key
+    if api_key != settings.api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key",
+        )
+
+    return api_key
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware for request logging and timing."""
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Response]
+    ) -> Response:
+        """Log request details and timing."""
+        # Generate request ID if not present
+        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+
+        # Add request ID to state for access in handlers
+        request.state.request_id = request_id
+
+        # Log request start
+        start_time = time.perf_counter()
+        logger.info(
+            "Request started",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "client": request.client.host if request.client else "unknown",
+            },
+        )
+
+        # Process request
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            # Log error
+            processing_time = int((time.perf_counter() - start_time) * 1000)
+            logger.error(
+                "Request failed",
+                extra={
+                    "request_id": request_id,
+                    "error": str(e),
+                    "processing_time_ms": processing_time,
+                },
+            )
+            raise
+
+        # Calculate processing time
+        processing_time = int((time.perf_counter() - start_time) * 1000)
+
+        # Add headers
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Processing-Time-Ms"] = str(processing_time)
+
+        # Log request completion
+        logger.info(
+            "Request completed",
+            extra={
+                "request_id": request_id,
+                "status_code": response.status_code,
+                "processing_time_ms": processing_time,
+            },
+        )
+
+        return response
