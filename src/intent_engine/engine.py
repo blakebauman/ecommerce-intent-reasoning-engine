@@ -5,15 +5,12 @@ import time
 from dataclasses import dataclass
 
 from intent_engine.config import Settings, get_settings
-from intent_engine.observability.metrics import record_intent_resolution, record_pipeline_stage
-from intent_engine.observability.tracing import pipeline_span
 from intent_engine.extractors.embedding import EmbeddingExtractor
 from intent_engine.extractors.entity_extractor import EntityExtractor
 from intent_engine.extractors.sentiment import SentimentAnalyzer, get_sentiment_analyzer
 from intent_engine.matchers.compound_detector import CompoundDetector
 from intent_engine.matchers.similarity import IntentMatcher, MatchDecision
 from intent_engine.models.context import EnrichedContext
-from intent_engine.models.entity import ExtractionResult
 from intent_engine.models.intent import ResolvedIntent
 from intent_engine.models.request import IntentRequest
 from intent_engine.models.response import (
@@ -22,6 +19,9 @@ from intent_engine.models.response import (
     ReasoningResult,
     SentimentInfo,
 )
+from intent_engine.observability.metrics import record_intent_resolution, record_pipeline_stage
+from intent_engine.observability.tracing import pipeline_span
+from intent_engine.reasoners.conflict_resolver import ConflictResolver
 from intent_engine.reasoners.context_enricher import ContextEnricher
 from intent_engine.reasoners.decomposer import IntentDecomposer
 from intent_engine.reasoners.policy_engine import PolicyEngine, get_policy_engine
@@ -44,6 +44,7 @@ class EngineComponents:
     sentiment_analyzer: SentimentAnalyzer | None = None
     context_enricher: ContextEnricher | None = None
     policy_engine: PolicyEngine | None = None
+    conflict_resolver: ConflictResolver | None = None
 
 
 class IntentEngine:
@@ -138,6 +139,9 @@ class IntentEngine:
             except Exception as e:
                 logger.warning(f"Policy engine not available: {e}")
 
+            # Conflict resolver for handling contradictory intents
+            conflict_resolver = ConflictResolver()
+
             self._components = EngineComponents(
                 entity_extractor=entity_extractor,
                 embedding_extractor=embedding_extractor,
@@ -148,6 +152,7 @@ class IntentEngine:
                 sentiment_analyzer=sentiment_analyzer,
                 context_enricher=context_enricher,
                 policy_engine=policy_engine,
+                conflict_resolver=conflict_resolver,
             )
 
         self._initialized = True
@@ -470,9 +475,30 @@ class IntentEngine:
 
         reasoning_trace.extend(decomposition.reasoning_trace)
 
+        # Step 9: Conflict resolution (if multiple intents)
+        final_intents = decomposition.intents
+        conflict_clarification_question = None
+        if len(decomposition.intents) > 1 and self.components.conflict_resolver:
+            conflict_result = await self.components.conflict_resolver.resolve(
+                intents=decomposition.intents,
+                entities=extraction_result.entities,
+                context=enriched_context,
+                constraints=decomposition.constraints,
+                text=request.raw_text,
+                customer_tier=request.customer_tier,
+                frustration_score=(
+                    sentiment_info.frustration_score if sentiment_info else 0.0
+                ),
+            )
+            final_intents = conflict_result.resolved_intents
+            reasoning_trace.extend(conflict_result.reasoning)
+
+            if conflict_result.requires_clarification:
+                conflict_clarification_question = conflict_result.clarification_question
+
         # Calculate overall confidence
-        if decomposition.intents:
-            confidence_summary = min(i.confidence for i in decomposition.intents)
+        if final_intents:
+            confidence_summary = min(i.confidence for i in final_intents)
         else:
             confidence_summary = 0.0
 
@@ -488,8 +514,8 @@ class IntentEngine:
         )
 
         # Determine if human handoff needed based on policy or decomposition
-        requires_human = decomposition.requires_clarification
-        human_reason = decomposition.clarification_question
+        requires_human = decomposition.requires_clarification or conflict_clarification_question is not None
+        human_reason = decomposition.clarification_question or conflict_clarification_question
         if policy_info and policy_info.escalation_required:
             requires_human = True
             if human_reason:
@@ -499,7 +525,7 @@ class IntentEngine:
 
         return ReasoningResult(
             request_id=request.request_id,
-            resolved_intents=decomposition.intents,
+            resolved_intents=final_intents,
             is_compound=decomposition.is_compound,
             entities=extraction_result.entities,
             constraints=decomposition.constraints,
