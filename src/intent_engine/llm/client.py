@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.settings import ModelSettings
 
 
 class DecomposedIntent(BaseModel):
@@ -60,6 +61,10 @@ class IntentContext:
     frustration_score: float | None = None
     urgency_score: float | None = None
     sentiment_score: float | None = None
+    # Optional order lookup callback for tools
+    order_lookup: any = None  # Callable[[str], Awaitable[dict | None]]
+    # Optional return eligibility check callback
+    return_eligibility_check: any = None  # Callable[[str], Awaitable[dict | None]]
 
 
 # Build the core intents documentation for the system prompt
@@ -145,26 +150,136 @@ SYSTEM_PROMPT = f"""You are an eCommerce intent classification engine. Your job 
 - If entities like order IDs are mentioned, note them in evidence
 """
 
+# Valid intent codes for validation
+VALID_INTENT_CODES: set[str] = {
+    # Order Status
+    "ORDER_STATUS.WISMO",
+    "ORDER_STATUS.DELIVERY_ESTIMATE",
+    "ORDER_STATUS.CONFIRMATION",
+    "ORDER_STATUS.TRACKING_ISSUE",
+    # Order Modify
+    "ORDER_MODIFY.CANCEL_ORDER",
+    "ORDER_MODIFY.CHANGE_ADDRESS",
+    "ORDER_MODIFY.CHANGE_ITEMS",
+    "ORDER_MODIFY.EXPEDITE",
+    # Return/Exchange
+    "RETURN_EXCHANGE.RETURN_INITIATE",
+    "RETURN_EXCHANGE.EXCHANGE_REQUEST",
+    "RETURN_EXCHANGE.REFUND_STATUS",
+    "RETURN_EXCHANGE.RETURN_STATUS",
+    "RETURN_EXCHANGE.RETURN_POLICY",
+    "RETURN_EXCHANGE.WARRANTY_CLAIM",
+    "RETURN_EXCHANGE.STORE_CREDIT",
+    # Complaints
+    "COMPLAINT.DAMAGED_ITEM",
+    "COMPLAINT.WRONG_ITEM",
+    "COMPLAINT.MISSING_ITEM",
+    "COMPLAINT.QUALITY_ISSUE",
+    "COMPLAINT.LATE_DELIVERY",
+    "COMPLAINT.SERVICE_ISSUE",
+    "COMPLAINT.LOST_PACKAGE",
+    # Product Inquiry
+    "PRODUCT_INQUIRY.STOCK",
+    "PRODUCT_INQUIRY.RESTOCK",
+    "PRODUCT_INQUIRY.SIZE_FIT",
+    "PRODUCT_INQUIRY.FEATURES",
+    "PRODUCT_INQUIRY.COMPATIBILITY",
+    "PRODUCT_INQUIRY.MATERIALS",
+    "PRODUCT_INQUIRY.USAGE",
+    # Account/Billing
+    "ACCOUNT_BILLING.PAYMENT_ISSUE",
+    "ACCOUNT_BILLING.UPDATE_PAYMENT",
+    "ACCOUNT_BILLING.INVOICE",
+    "ACCOUNT_BILLING.PROMO_CODE",
+    "ACCOUNT_BILLING.SUBSCRIPTION",
+    "ACCOUNT_BILLING.ACCOUNT_ACCESS",
+    "ACCOUNT_BILLING.UPDATE_INFO",
+    "ACCOUNT_BILLING.DELETE_ACCOUNT",
+    # Discovery
+    "DISCOVERY.RECOMMENDATION",
+    "DISCOVERY.COMPARISON",
+    "DISCOVERY.BEST_SELLER",
+    "DISCOVERY.NEW_ARRIVALS",
+    "DISCOVERY.GIFT_SUGGESTION",
+    # Meta
+    "META.GREETING",
+    "META.FAREWELL",
+    "META.HUMAN_HANDOFF",
+    "META.FEEDBACK",
+    "META.UNCLEAR",
+    "META.OFF_TOPIC",
+    # Loyalty/Rewards
+    "LOYALTY_REWARDS.POINTS_BALANCE",
+    "LOYALTY_REWARDS.EARN_POINTS",
+    "LOYALTY_REWARDS.REDEEM_POINTS",
+    "LOYALTY_REWARDS.MEMBER_STATUS",
+    "LOYALTY_REWARDS.POINTS_VALUE",
+    # Shipping
+    "SHIPPING.SHIPPING_OPTIONS",
+    "SHIPPING.INTERNATIONAL",
+    "SHIPPING.SHIPPING_COST",
+    "SHIPPING.DELIVERY_LOCATIONS",
+    "SHIPPING.DELIVERY_TIME",
+    # Bulk/Wholesale
+    "BULK_WHOLESALE.BULK_DISCOUNT",
+    "BULK_WHOLESALE.BUSINESS_ACCOUNT",
+    "BULK_WHOLESALE.MINIMUM_ORDER",
+    "BULK_WHOLESALE.WHOLESALE_PRICING",
+}
 
-def get_intent_agent(model_name: str = "claude-sonnet-4-5") -> Agent[IntentContext, DecompositionResult]:
+
+def get_intent_agent(
+    model_name: str = "claude-sonnet-4-5",
+    temperature: float = 0.1,
+    max_retries: int = 2,
+    model: any = None,
+) -> Agent[IntentContext, DecompositionResult]:
     """
     Create a Pydantic AI agent for intent decomposition.
 
     Args:
         model_name: The Anthropic model to use (without provider prefix).
+        temperature: Model temperature (lower = more deterministic). Default 0.1 for classification.
+        max_retries: Number of retries on validation failure.
+        model: Optional model instance (e.g., TestModel for testing). If provided,
+               model_name is ignored.
 
     Returns:
         Configured Agent instance.
     """
-    # Use the string-based model identifier format
-    model_id = f"anthropic:{model_name}"
+    # Use provided model or construct from model_name
+    model_or_id = model if model is not None else f"anthropic:{model_name}"
 
     agent: Agent[IntentContext, DecompositionResult] = Agent(
-        model_id,
+        model_or_id,
         deps_type=IntentContext,
         output_type=DecompositionResult,
         system_prompt=SYSTEM_PROMPT,
+        retries=max_retries,
+        model_settings=ModelSettings(
+            temperature=temperature,
+            max_tokens=1024,
+        ),
     )
+
+    @agent.output_validator
+    async def validate_intent_codes(
+        ctx: RunContext[IntentContext], result: DecompositionResult
+    ) -> DecompositionResult:
+        """Validate that all intent codes are valid."""
+        invalid_codes = []
+        for intent in result.intents:
+            if intent.intent_code not in VALID_INTENT_CODES:
+                invalid_codes.append(intent.intent_code)
+
+        if invalid_codes:
+            valid_list = ", ".join(sorted(VALID_INTENT_CODES)[:10]) + "..."
+            raise ModelRetry(
+                f"Invalid intent code(s): {invalid_codes}. "
+                f"Use only valid codes like: {valid_list}"
+            )
+
+        return result
 
     @agent.system_prompt
     def add_context(ctx: RunContext[IntentContext]) -> str:
@@ -205,5 +320,60 @@ def get_intent_agent(model_name: str = "claude-sonnet-4-5") -> Agent[IntentConte
         if context_parts:
             return "\n## Additional Context\n" + "\n".join(f"- {p}" for p in context_parts)
         return ""
+
+    @agent.tool
+    async def lookup_order(
+        ctx: RunContext[IntentContext], order_id: str
+    ) -> dict[str, str | bool | None]:
+        """
+        Look up order details to help classify the intent.
+
+        Use this tool when the customer mentions an order ID and you need
+        more context to determine their intent (e.g., check if order is
+        delivered to classify as WISMO vs LATE_DELIVERY complaint).
+
+        Args:
+            order_id: The order ID to look up.
+
+        Returns:
+            Order details including status, tracking, and eligibility info.
+        """
+        if ctx.deps.order_lookup is None:
+            return {"error": "Order lookup not available", "order_id": order_id}
+
+        try:
+            order_data = await ctx.deps.order_lookup(order_id)
+            if order_data is None:
+                return {"error": "Order not found", "order_id": order_id}
+            return order_data
+        except Exception as e:
+            return {"error": str(e), "order_id": order_id}
+
+    @agent.tool
+    async def check_return_eligibility(
+        ctx: RunContext[IntentContext], order_id: str
+    ) -> dict[str, str | bool | int | None]:
+        """
+        Check if an order is eligible for return.
+
+        Use this tool when the customer wants to return something and you
+        need to verify eligibility before classifying as RETURN_INITIATE.
+
+        Args:
+            order_id: The order ID to check.
+
+        Returns:
+            Return eligibility info including window status and days remaining.
+        """
+        if ctx.deps.return_eligibility_check is None:
+            return {"error": "Return eligibility check not available", "order_id": order_id}
+
+        try:
+            eligibility = await ctx.deps.return_eligibility_check(order_id)
+            if eligibility is None:
+                return {"error": "Order not found", "order_id": order_id}
+            return eligibility
+        except Exception as e:
+            return {"error": str(e), "order_id": order_id}
 
     return agent

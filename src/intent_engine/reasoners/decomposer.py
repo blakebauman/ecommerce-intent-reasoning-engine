@@ -35,12 +35,15 @@ class IntentDecomposer:
     - Resolve ambiguous classifications
     - Extract constraints (deadlines, preferences)
     - Generate clarification questions when needed
+    - Use tools for order lookup and return eligibility checks
     """
 
     def __init__(
         self,
         model_name: str = "claude-sonnet-4-5",
         agent: Agent[IntentContext, DecompositionResult] | None = None,
+        order_lookup: any = None,
+        return_eligibility_check: any = None,
     ) -> None:
         """
         Initialize the decomposer.
@@ -48,9 +51,13 @@ class IntentDecomposer:
         Args:
             model_name: Anthropic model name.
             agent: Optional pre-configured agent (for testing).
+            order_lookup: Optional async callback to look up order details.
+            return_eligibility_check: Optional async callback to check return eligibility.
         """
         self.agent = agent or get_intent_agent(model_name)
         self._model_name = model_name
+        self._order_lookup = order_lookup
+        self._return_eligibility_check = return_eligibility_check
 
     async def decompose(
         self,
@@ -91,6 +98,8 @@ class IntentDecomposer:
             match_hints=hint_codes,
             customer_tier=customer_tier,
             previous_intents=previous_intents,
+            order_lookup=self._order_lookup,
+            return_eligibility_check=self._return_eligibility_check,
         )
 
         # Run the agent
