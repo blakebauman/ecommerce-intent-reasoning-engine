@@ -556,5 +556,89 @@
   {"id": "gs-502", "input": "My wife ordered something using my account. How do I track HER order?", "intents": ["ORDER_STATUS.WISMO"], "is_compound": false},
   {"id": "gs-503", "input": "UGH the app crashed and now I don't know if my order went through", "intents": ["ORDER_STATUS.CONFIRMATION"], "is_compound": false},
   {"id": "gs-504", "input": "Please help! Need to return, exchange AND get refund for different orders", "intents": ["RETURN_EXCHANGE.RETURN_INITIATE", "RETURN_EXCHANGE.EXCHANGE_REQUEST", "RETURN_EXCHANGE.REFUND_STATUS"], "is_compound": true},
-  {"id": "gs-505", "input": "Hi again. Still waiting. Still frustrated. Still no order.", "intents": ["ORDER_STATUS.WISMO", "COMPLAINT.SERVICE_ISSUE"], "is_compound": true}
+  {"id": "gs-505", "input": "Hi again. Still waiting. Still frustrated. Still no order.", "intents": ["ORDER_STATUS.WISMO", "COMPLAINT.SERVICE_ISSUE"], "is_compound": true},
+
+  {"id": "gs-506", "input": "How many loyalty points do I have?", "intents": ["LOYALTY_REWARDS.POINTS_BALANCE"], "is_compound": false},
+  {"id": "gs-507", "input": "What's my rewards balance?", "intents": ["LOYALTY_REWARDS.POINTS_BALANCE"], "is_compound": false},
+  {"id": "gs-508", "input": "Check my points balance please", "intents": ["LOYALTY_REWARDS.POINTS_BALANCE"], "is_compound": false},
+  {"id": "gs-509", "input": "How many points are in my account?", "intents": ["LOYALTY_REWARDS.POINTS_BALANCE"], "is_compound": false},
+  {"id": "gs-510", "input": "Can I see my rewards points?", "intents": ["LOYALTY_REWARDS.POINTS_BALANCE"], "is_compound": false},
+
+  {"id": "gs-511", "input": "How do I earn more points?", "intents": ["LOYALTY_REWARDS.EARN_POINTS"], "is_compound": false},
+  {"id": "gs-512", "input": "How can I get rewards points?", "intents": ["LOYALTY_REWARDS.EARN_POINTS"], "is_compound": false},
+  {"id": "gs-513", "input": "What's the fastest way to earn points?", "intents": ["LOYALTY_REWARDS.EARN_POINTS"], "is_compound": false},
+  {"id": "gs-514", "input": "Do I get points for this purchase?", "intents": ["LOYALTY_REWARDS.EARN_POINTS"], "is_compound": false},
+  {"id": "gs-515", "input": "How many points will I earn on this order?", "intents": ["LOYALTY_REWARDS.EARN_POINTS"], "is_compound": false},
+
+  {"id": "gs-516", "input": "I want to redeem my points", "intents": ["LOYALTY_REWARDS.REDEEM_POINTS"], "is_compound": false},
+  {"id": "gs-517", "input": "How do I use my rewards?", "intents": ["LOYALTY_REWARDS.REDEEM_POINTS"], "is_compound": false},
+  {"id": "gs-518", "input": "Can I apply points to this order?", "intents": ["LOYALTY_REWARDS.REDEEM_POINTS"], "is_compound": false},
+  {"id": "gs-519", "input": "Redeem points for a discount", "intents": ["LOYALTY_REWARDS.REDEEM_POINTS"], "is_compound": false},
+  {"id": "gs-520", "input": "I'd like to use my loyalty points", "intents": ["LOYALTY_REWARDS.REDEEM_POINTS"], "is_compound": false},
+
+  {"id": "gs-521", "input": "What tier am I in the loyalty program?", "intents": ["LOYALTY_REWARDS.MEMBER_STATUS"], "is_compound": false},
+  {"id": "gs-522", "input": "What's my member status?", "intents": ["LOYALTY_REWARDS.MEMBER_STATUS"], "is_compound": false},
+  {"id": "gs-523", "input": "Am I a gold member?", "intents": ["LOYALTY_REWARDS.MEMBER_STATUS"], "is_compound": false},
+  {"id": "gs-524", "input": "When do I reach VIP status?", "intents": ["LOYALTY_REWARDS.MEMBER_STATUS"], "is_compound": false},
+  {"id": "gs-525", "input": "What are my loyalty program benefits?", "intents": ["LOYALTY_REWARDS.MEMBER_STATUS"], "is_compound": false},
+
+  {"id": "gs-526", "input": "How much are my points worth?", "intents": ["LOYALTY_REWARDS.POINTS_VALUE"], "is_compound": false},
+  {"id": "gs-527", "input": "What's the value of 1000 points?", "intents": ["LOYALTY_REWARDS.POINTS_VALUE"], "is_compound": false},
+  {"id": "gs-528", "input": "How much discount can I get with my points?", "intents": ["LOYALTY_REWARDS.POINTS_VALUE"], "is_compound": false},
+  {"id": "gs-529", "input": "What can I buy with 500 points?", "intents": ["LOYALTY_REWARDS.POINTS_VALUE"], "is_compound": false},
+  {"id": "gs-530", "input": "Points to dollars conversion?", "intents": ["LOYALTY_REWARDS.POINTS_VALUE"], "is_compound": false},
+
+  {"id": "gs-531", "input": "What shipping options do you have?", "intents": ["SHIPPING.SHIPPING_OPTIONS"], "is_compound": false},
+  {"id": "gs-532", "input": "What are the available shipping methods?", "intents": ["SHIPPING.SHIPPING_OPTIONS"], "is_compound": false},
+  {"id": "gs-533", "input": "Do you offer express shipping?", "intents": ["SHIPPING.SHIPPING_OPTIONS"], "is_compound": false},
+  {"id": "gs-534", "input": "What delivery options are available?", "intents": ["SHIPPING.SHIPPING_OPTIONS"], "is_compound": false},
+  {"id": "gs-535", "input": "Can I choose my shipping method?", "intents": ["SHIPPING.SHIPPING_OPTIONS"], "is_compound": false},
+
+  {"id": "gs-536", "input": "Do you ship internationally?", "intents": ["SHIPPING.INTERNATIONAL"], "is_compound": false},
+  {"id": "gs-537", "input": "Can you ship to UK?", "intents": ["SHIPPING.INTERNATIONAL"], "is_compound": false},
+  {"id": "gs-538", "input": "Do you deliver to Australia?", "intents": ["SHIPPING.INTERNATIONAL"], "is_compound": false},
+  {"id": "gs-539", "input": "What countries do you ship to?", "intents": ["SHIPPING.INTERNATIONAL"], "is_compound": false},
+  {"id": "gs-540", "input": "International shipping available?", "intents": ["SHIPPING.INTERNATIONAL"], "is_compound": false},
+
+  {"id": "gs-541", "input": "How much is shipping?", "intents": ["SHIPPING.SHIPPING_COST"], "is_compound": false},
+  {"id": "gs-542", "input": "What are your shipping rates?", "intents": ["SHIPPING.SHIPPING_COST"], "is_compound": false},
+  {"id": "gs-543", "input": "Is shipping free?", "intents": ["SHIPPING.SHIPPING_COST"], "is_compound": false},
+  {"id": "gs-544", "input": "How much to ship this to California?", "intents": ["SHIPPING.SHIPPING_COST"], "is_compound": false},
+  {"id": "gs-545", "input": "What's the delivery fee?", "intents": ["SHIPPING.SHIPPING_COST"], "is_compound": false},
+
+  {"id": "gs-546", "input": "How long does shipping take?", "intents": ["SHIPPING.DELIVERY_TIME"], "is_compound": false},
+  {"id": "gs-547", "input": "Standard shipping time?", "intents": ["SHIPPING.DELIVERY_TIME"], "is_compound": false},
+  {"id": "gs-548", "input": "How fast is express delivery?", "intents": ["SHIPPING.DELIVERY_TIME"], "is_compound": false},
+  {"id": "gs-549", "input": "What's the delivery timeframe?", "intents": ["SHIPPING.DELIVERY_TIME"], "is_compound": false},
+  {"id": "gs-550", "input": "How many days for shipping?", "intents": ["SHIPPING.DELIVERY_TIME"], "is_compound": false},
+
+  {"id": "gs-551", "input": "Do you offer bulk discounts?", "intents": ["BULK_WHOLESALE.BULK_DISCOUNT"], "is_compound": false},
+  {"id": "gs-552", "input": "Is there a discount for large orders?", "intents": ["BULK_WHOLESALE.BULK_DISCOUNT"], "is_compound": false},
+  {"id": "gs-553", "input": "Volume pricing available?", "intents": ["BULK_WHOLESALE.BULK_DISCOUNT"], "is_compound": false},
+  {"id": "gs-554", "input": "What's the bulk order discount?", "intents": ["BULK_WHOLESALE.BULK_DISCOUNT"], "is_compound": false},
+  {"id": "gs-555", "input": "Discount for ordering 100 units?", "intents": ["BULK_WHOLESALE.BULK_DISCOUNT"], "is_compound": false},
+
+  {"id": "gs-556", "input": "How do I set up a business account?", "intents": ["BULK_WHOLESALE.BUSINESS_ACCOUNT"], "is_compound": false},
+  {"id": "gs-557", "input": "I want to open a wholesale account", "intents": ["BULK_WHOLESALE.BUSINESS_ACCOUNT"], "is_compound": false},
+  {"id": "gs-558", "input": "Can I get a corporate account?", "intents": ["BULK_WHOLESALE.BUSINESS_ACCOUNT"], "is_compound": false},
+  {"id": "gs-559", "input": "Business customer registration", "intents": ["BULK_WHOLESALE.BUSINESS_ACCOUNT"], "is_compound": false},
+  {"id": "gs-560", "input": "How to become a wholesale customer?", "intents": ["BULK_WHOLESALE.BUSINESS_ACCOUNT"], "is_compound": false},
+
+  {"id": "gs-561", "input": "What's the minimum order quantity?", "intents": ["BULK_WHOLESALE.MINIMUM_ORDER"], "is_compound": false},
+  {"id": "gs-562", "input": "Is there a MOQ for bulk orders?", "intents": ["BULK_WHOLESALE.MINIMUM_ORDER"], "is_compound": false},
+  {"id": "gs-563", "input": "Minimum units for wholesale pricing?", "intents": ["BULK_WHOLESALE.MINIMUM_ORDER"], "is_compound": false},
+  {"id": "gs-564", "input": "How many do I need to order for bulk rate?", "intents": ["BULK_WHOLESALE.MINIMUM_ORDER"], "is_compound": false},
+  {"id": "gs-565", "input": "What's the minimum for wholesale?", "intents": ["BULK_WHOLESALE.MINIMUM_ORDER"], "is_compound": false},
+
+  {"id": "gs-566", "input": "What are your wholesale prices?", "intents": ["BULK_WHOLESALE.WHOLESALE_PRICING"], "is_compound": false},
+  {"id": "gs-567", "input": "Can I get a wholesale price list?", "intents": ["BULK_WHOLESALE.WHOLESALE_PRICING"], "is_compound": false},
+  {"id": "gs-568", "input": "B2B pricing information", "intents": ["BULK_WHOLESALE.WHOLESALE_PRICING"], "is_compound": false},
+  {"id": "gs-569", "input": "Trade pricing for retailers?", "intents": ["BULK_WHOLESALE.WHOLESALE_PRICING"], "is_compound": false},
+  {"id": "gs-570", "input": "What's the reseller discount?", "intents": ["BULK_WHOLESALE.WHOLESALE_PRICING"], "is_compound": false},
+
+  {"id": "gs-571", "input": "Check my points and redeem them for this order", "intents": ["LOYALTY_REWARDS.POINTS_BALANCE", "LOYALTY_REWARDS.REDEEM_POINTS"], "is_compound": true},
+  {"id": "gs-572", "input": "What shipping options do you have and how much is international?", "intents": ["SHIPPING.SHIPPING_OPTIONS", "SHIPPING.INTERNATIONAL"], "is_compound": true},
+  {"id": "gs-573", "input": "I want to set up a business account and know the minimum order", "intents": ["BULK_WHOLESALE.BUSINESS_ACCOUNT", "BULK_WHOLESALE.MINIMUM_ORDER"], "is_compound": true},
+  {"id": "gs-574", "input": "Can I use my loyalty points and also get bulk pricing?", "intents": ["LOYALTY_REWARDS.REDEEM_POINTS", "BULK_WHOLESALE.BULK_DISCOUNT"], "is_compound": true},
+  {"id": "gs-575", "input": "What's my member status and how many more points to reach VIP?", "intents": ["LOYALTY_REWARDS.MEMBER_STATUS", "LOYALTY_REWARDS.POINTS_BALANCE"], "is_compound": true}
 ]

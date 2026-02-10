@@ -1088,6 +1088,23 @@
     "Residential delivery available?",
     "Shipping restrictions?"
   ],
+  "SHIPPING.DELIVERY_TIME": [
+    "How long does shipping take?",
+    "Standard shipping time?",
+    "What's the delivery timeframe?",
+    "How many days for shipping?",
+    "How fast is express delivery?",
+    "What's standard shipping speed?",
+    "Ground shipping timeline?",
+    "2-day shipping available?",
+    "Overnight shipping time?",
+    "How quickly can you ship?",
+    "Shipping duration for my area?",
+    "Typical delivery time?",
+    "Priority mail delivery time?",
+    "How long until it ships?",
+    "Shipping time to California?"
+  ],
   "BULK_WHOLESALE.BULK_DISCOUNT": [
     "Do you offer bulk discounts?",
     "Quantity discount available?",
