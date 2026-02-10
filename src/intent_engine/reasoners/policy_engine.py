@@ -293,12 +293,29 @@ class PolicyEngine:
                     f"High-value order: ${context.order.total:.2f} (threshold: ${high_value_threshold:.2f})"
                 )
 
-        # Check frustration score
-        frustration_threshold = escalation_rules.get("frustration_score_threshold", 0.7)
+        # Check frustration score with tier-aware thresholds
+        base_threshold = escalation_rules.get("frustration_score_threshold", 0.7)
+
+        # Dynamic threshold based on customer tier
+        # VIP: harder to escalate (0.8) - they get better baseline service
+        # AT_RISK: easier to escalate (0.5) - retain at-risk customers
+        # STANDARD/PREMIUM: use base threshold
+        if customer:
+            if customer.tier == CustomerTier.VIP:
+                frustration_threshold = min(0.9, base_threshold + 0.1)
+            elif customer.tier == CustomerTier.AT_RISK:
+                frustration_threshold = max(0.4, base_threshold - 0.2)
+            else:
+                frustration_threshold = base_threshold
+        else:
+            frustration_threshold = base_threshold
+
         if frustration_score >= frustration_threshold:
             decision.escalation_required = True
+            tier_label = customer.tier.value if customer else "unknown"
             decision.escalation_reasons.append(
-                f"High frustration score: {frustration_score:.2f} (threshold: {frustration_threshold})"
+                f"High frustration score: {frustration_score:.2f} "
+                f"(threshold: {frustration_threshold:.2f} for {tier_label} tier)"
             )
 
         # Check for escalation keywords (would be checked against raw text)

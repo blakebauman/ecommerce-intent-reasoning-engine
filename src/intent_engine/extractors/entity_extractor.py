@@ -7,7 +7,13 @@ import dateparser
 import spacy
 from spacy.language import Language
 
-from intent_engine.models.entity import EntityType, ExtractedEntity, ExtractionResult
+from intent_engine.models.entity import (
+    DamageSeverity,
+    DefectCategory,
+    EntityType,
+    ExtractedEntity,
+    ExtractionResult,
+)
 
 
 class EntityExtractor:
@@ -82,6 +88,54 @@ class EntityExtractor:
         re.compile(r"\b(not as described|fake|counterfeit|poor quality)\b", re.IGNORECASE),
     ]
 
+    # Damage severity patterns
+    DAMAGE_SEVERITY_PATTERNS = [
+        # Minor damage
+        (re.compile(r"\b(slight(ly)?|minor|small|tiny|little) (scratch|dent|mark|scuff)\b", re.I), DamageSeverity.MINOR),
+        (re.compile(r"\b(cosmetic|surface|superficial) (damage|issue|problem)\b", re.I), DamageSeverity.MINOR),
+        # Moderate damage
+        (re.compile(r"\b(noticeable|visible|obvious) (damage|crack|dent)\b", re.I), DamageSeverity.MODERATE),
+        (re.compile(r"\b(dented|scratched|chipped)\b", re.I), DamageSeverity.MODERATE),
+        (re.compile(r"\bpartly (broken|damaged)\b", re.I), DamageSeverity.MODERATE),
+        # Severe damage
+        (re.compile(r"\b(badly|severely|heavily) (damaged|broken|cracked)\b", re.I), DamageSeverity.SEVERE),
+        (re.compile(r"\b(completely|totally|entirely) broken\b", re.I), DamageSeverity.SEVERE),
+        (re.compile(r"\b(shattered|crushed|smashed|destroyed)\b", re.I), DamageSeverity.DESTROYED),
+        (re.compile(r"\bin pieces\b", re.I), DamageSeverity.DESTROYED),
+    ]
+
+    # Defect category patterns
+    DEFECT_CATEGORY_PATTERNS = [
+        (re.compile(r"\b(wrong|different|incorrect) color\b", re.I), DefectCategory.COLOR_MISMATCH),
+        (re.compile(r"\bcolor (doesn't match|is off|is wrong)\b", re.I), DefectCategory.COLOR_MISMATCH),
+        (re.compile(r"\b(wrong|incorrect|different) size\b", re.I), DefectCategory.SIZE_WRONG),
+        (re.compile(r"\b(too (big|small|large|tight|loose))\b", re.I), DefectCategory.SIZE_WRONG),
+        (re.compile(r"\b(doesn't|does not) fit\b", re.I), DefectCategory.SIZE_WRONG),
+        (re.compile(r"\b(broken|cracked|shattered|busted)\b", re.I), DefectCategory.BROKEN),
+        (re.compile(r"\b(missing|no|without) (parts?|pieces?|components?|accessories?)\b", re.I), DefectCategory.MISSING_PARTS),
+        (re.compile(r"\b(manufacturing|factory) (defect|flaw|issue)\b", re.I), DefectCategory.MANUFACTURING_DEFECT),
+        (re.compile(r"\b(shipping|transit|delivery) damage\b", re.I), DefectCategory.SHIPPING_DAMAGE),
+        (re.compile(r"\b(not as (described|advertised|pictured|shown))\b", re.I), DefectCategory.NOT_AS_DESCRIBED),
+        (re.compile(r"\b(doesn't|does not) (work|function|turn on|power on)\b", re.I), DefectCategory.FUNCTIONALITY_ISSUE),
+    ]
+
+    # Carrier patterns
+    CARRIER_PATTERNS = [
+        (re.compile(r"\b(UPS|United Parcel Service)\b", re.I), "UPS"),
+        (re.compile(r"\b(FedEx|Federal Express)\b", re.I), "FedEx"),
+        (re.compile(r"\b(USPS|US Postal|postal service)\b", re.I), "USPS"),
+        (re.compile(r"\b(DHL)\b", re.I), "DHL"),
+        (re.compile(r"\b(Amazon|AMZL)\b", re.I), "Amazon"),
+        (re.compile(r"\b(OnTrac)\b", re.I), "OnTrac"),
+        (re.compile(r"\b(LaserShip)\b", re.I), "LaserShip"),
+    ]
+
+    # Brand patterns (common ecommerce brands - can be extended)
+    BRAND_PATTERNS = [
+        re.compile(r"\b(Apple|Samsung|Sony|LG|Dell|HP|Lenovo|Nike|Adidas|Puma)\b", re.I),
+        re.compile(r"\b(Microsoft|Google|Amazon|Nintendo|PlayStation|Xbox)\b", re.I),
+    ]
+
     def __init__(self, spacy_model: str = "en_core_web_sm") -> None:
         """Initialize the entity extractor with a spaCy model."""
         self._nlp: Language | None = None
@@ -117,6 +171,12 @@ class EntityExtractor:
 
         # Extract reasons
         entities.extend(self._extract_reasons(text))
+
+        # Extract advanced entity types (Phase 5)
+        entities.extend(self._extract_damage_severity(text))
+        entities.extend(self._extract_defect_category(text))
+        entities.extend(self._extract_carriers(text))
+        entities.extend(self._extract_brands(text))
 
         # Deduplicate entities (prefer higher confidence)
         entities = self._deduplicate_entities(entities)
@@ -235,6 +295,82 @@ class EntityExtractor:
                 seen[key] = entity
 
         return list(seen.values())
+
+    def _extract_damage_severity(self, text: str) -> list[ExtractedEntity]:
+        """Extract damage severity from text."""
+        entities: list[ExtractedEntity] = []
+
+        for pattern, severity in self.DAMAGE_SEVERITY_PATTERNS:
+            for match in pattern.finditer(text):
+                entities.append(
+                    ExtractedEntity(
+                        entity_type=EntityType.DAMAGE_SEVERITY,
+                        value=severity.value,
+                        raw_span=match.group(0),
+                        start_pos=match.start(),
+                        end_pos=match.end(),
+                        confidence=0.85,
+                    )
+                )
+
+        return entities
+
+    def _extract_defect_category(self, text: str) -> list[ExtractedEntity]:
+        """Extract defect category from text."""
+        entities: list[ExtractedEntity] = []
+
+        for pattern, category in self.DEFECT_CATEGORY_PATTERNS:
+            for match in pattern.finditer(text):
+                entities.append(
+                    ExtractedEntity(
+                        entity_type=EntityType.DEFECT_CATEGORY,
+                        value=category.value,
+                        raw_span=match.group(0),
+                        start_pos=match.start(),
+                        end_pos=match.end(),
+                        confidence=0.88,
+                    )
+                )
+
+        return entities
+
+    def _extract_carriers(self, text: str) -> list[ExtractedEntity]:
+        """Extract shipping carrier names from text."""
+        entities: list[ExtractedEntity] = []
+
+        for pattern, carrier_name in self.CARRIER_PATTERNS:
+            for match in pattern.finditer(text):
+                entities.append(
+                    ExtractedEntity(
+                        entity_type=EntityType.CARRIER,
+                        value=carrier_name,
+                        raw_span=match.group(0),
+                        start_pos=match.start(),
+                        end_pos=match.end(),
+                        confidence=0.95,
+                    )
+                )
+
+        return entities
+
+    def _extract_brands(self, text: str) -> list[ExtractedEntity]:
+        """Extract brand names from text."""
+        entities: list[ExtractedEntity] = []
+
+        for pattern in self.BRAND_PATTERNS:
+            for match in pattern.finditer(text):
+                entities.append(
+                    ExtractedEntity(
+                        entity_type=EntityType.BRAND_NAME,
+                        value=match.group(0),
+                        raw_span=match.group(0),
+                        start_pos=match.start(),
+                        end_pos=match.end(),
+                        confidence=0.90,
+                    )
+                )
+
+        return entities
 
     def extract_order_ids(self, text: str) -> list[str]:
         """Convenience method to extract just order IDs."""

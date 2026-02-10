@@ -115,6 +115,30 @@ class SentimentAnalyzer:
         (r"\bunderstand\b", -0.1),
     ]
 
+    # Sarcasm indicators - positive words in negative contexts
+    SARCASM_PATTERNS = [
+        (r"\boh\s+great\b", 0.75),  # "Oh great, another broken item"
+        (r"\bfantastic[,.]", 0.70),  # "Fantastic, it's broken"
+        (r"\bwonderful[,.]", 0.70),  # "Wonderful, still waiting"
+        (r"\bjust\s+perfect\b", 0.75),  # "Just perfect..."
+        (r"\bjust\s+great\b", 0.75),  # "Just great..."
+        (r"\bhow\s+nice\b", 0.65),  # "How nice of you to..."
+        (r"\blovely[,.]", 0.60),  # "Lovely, now it's broken"
+        (r"\bsuper[,.]", 0.60),  # "Super, now what"
+        (r"\bawesome[,.]", 0.65),  # "Awesome, another delay"
+        (r"\bgreat[,.]", 0.50),  # "Great, it's wrong" (comma after = likely sarcasm)
+        (r"\bthanks\s+(?:so\s+much|a\s+lot)[,.]?\s+(?:for|now)", 0.70),  # "Thanks a lot for nothing"
+        (r"\breally[?!]+", 0.55),  # "Really?!" - disbelief
+        (r"\bwow[,.]", 0.50),  # "Wow, still nothing"
+    ]
+
+    # Contradiction patterns (positive word + negative context in same sentence)
+    CONTRADICTION_WORDS = {
+        "positive": ["great", "wonderful", "fantastic", "amazing", "perfect", "awesome", "lovely"],
+        "negative": ["broken", "damaged", "wrong", "missing", "late", "never", "still waiting",
+                     "another", "again", "still no", "don't work", "doesn't work", "failed"],
+    }
+
     PRIORITY_THRESHOLD = 0.7  # Route to priority queue above this
 
     def __init__(self, use_transformer: bool = True, device: str | None = None) -> None:
@@ -190,8 +214,18 @@ class SentimentAnalyzer:
         escalation_score, escalation_signals = self._detect_escalation(text)
         signals.extend(escalation_signals)
 
-        # 5. Boost frustration based on escalation
+        # 4.5. Check for sarcasm (can flip positive sentiment to negative)
+        sarcasm_score, sarcasm_signals = self._detect_sarcasm(text)
+        signals.extend(sarcasm_signals)
+
+        # If sarcasm detected, flip positive sentiment to negative
+        if sarcasm_score > 0.5 and sentiment_score > 0:
+            sentiment_score = -sentiment_score * sarcasm_score
+            signals.append(f"sentiment_flipped:{sentiment_score:.2f}")
+
+        # 5. Boost frustration based on escalation and sarcasm
         frustration_score = min(1.0, frustration_score + (escalation_score * 0.3))
+        frustration_score = min(1.0, frustration_score + (sarcasm_score * 0.2))
 
         # 6. Apply negative sentiment boost to frustration
         if sentiment_score < -0.3:
@@ -356,6 +390,177 @@ class SentimentAnalyzer:
 
         upper_count = sum(1 for c in alpha_chars if c.isupper())
         return upper_count / len(alpha_chars)
+
+    def _detect_sarcasm(self, text: str) -> tuple[float, list[str]]:
+        """
+        Detect sarcasm in text.
+
+        Sarcasm detection uses:
+        1. Direct sarcasm patterns (e.g., "oh great", "just perfect")
+        2. Contradiction detection (positive word + negative context)
+
+        Args:
+            text: The customer message to analyze.
+
+        Returns:
+            Tuple of (sarcasm score, list of sarcasm signals).
+        """
+        text_lower = text.lower()
+        max_score = 0.0
+        signals: list[str] = []
+
+        # Check direct sarcasm patterns
+        for pattern, score in self.SARCASM_PATTERNS:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                max_score = max(max_score, score)
+                signals.append(f"sarcasm_pattern:{pattern[:25]}")
+
+        # Check for contradiction (positive word near negative context)
+        has_positive = any(
+            word in text_lower for word in self.CONTRADICTION_WORDS["positive"]
+        )
+        has_negative = any(
+            phrase in text_lower for phrase in self.CONTRADICTION_WORDS["negative"]
+        )
+
+        if has_positive and has_negative:
+            # Higher confidence if they're close together
+            for pos_word in self.CONTRADICTION_WORDS["positive"]:
+                if pos_word in text_lower:
+                    for neg_word in self.CONTRADICTION_WORDS["negative"]:
+                        if neg_word in text_lower:
+                            # Calculate proximity (within ~50 chars suggests same clause)
+                            pos_idx = text_lower.find(pos_word)
+                            neg_idx = text_lower.find(neg_word)
+                            distance = abs(pos_idx - neg_idx)
+                            if distance < 50:
+                                contradiction_score = 0.65
+                                max_score = max(max_score, contradiction_score)
+                                signals.append(f"contradiction:{pos_word}+{neg_word}")
+                                break
+
+        return max_score, signals
+
+
+@dataclass
+class ConversationSentiment:
+    """Aggregated sentiment across a conversation."""
+
+    message_count: int
+    average_frustration: float
+    peak_frustration: float
+    frustration_trajectory: str  # "rising", "constant", "declining"
+    escalation_pattern: bool  # True if phrases like "I've asked X times"
+    sentiment_history: list[float]
+
+
+class ConversationSentimentTracker:
+    """
+    Track sentiment across conversation turns.
+
+    Detects:
+    - Escalation patterns ("I've asked 5 times")
+    - Frustration trajectory (rising, constant, declining)
+    - Aggregate frustration across messages
+    """
+
+    ESCALATION_PATTERNS = [
+        re.compile(r"\b(I'?ve|I have) (asked|called|emailed|messaged|tried) (\d+|\w+) times?\b", re.I),
+        re.compile(r"\bthis is the (\d+)(st|nd|rd|th) time\b", re.I),
+        re.compile(r"\b(again|still|yet again)\b", re.I),
+        re.compile(r"\b(for (days|weeks|months))\b", re.I),
+        re.compile(r"\b(multiple|several) (attempts|times|tries)\b", re.I),
+    ]
+
+    def __init__(self, analyzer: "SentimentAnalyzer | None" = None) -> None:
+        """Initialize the tracker."""
+        self.analyzer = analyzer or get_sentiment_analyzer()
+        self._history: list[SentimentResult] = []
+
+    def add_message(self, text: str) -> SentimentResult:
+        """
+        Analyze a message and add it to the conversation history.
+
+        Args:
+            text: The customer message.
+
+        Returns:
+            SentimentResult for this message.
+        """
+        result = self.analyzer.analyze(text)
+        self._history.append(result)
+        return result
+
+    def get_conversation_sentiment(self) -> ConversationSentiment:
+        """
+        Get aggregated sentiment for the conversation.
+
+        Returns:
+            ConversationSentiment with trajectory and aggregation.
+        """
+        if not self._history:
+            return ConversationSentiment(
+                message_count=0,
+                average_frustration=0.0,
+                peak_frustration=0.0,
+                frustration_trajectory="constant",
+                escalation_pattern=False,
+                sentiment_history=[],
+            )
+
+        frustration_scores = [r.frustration_score for r in self._history]
+
+        # Calculate trajectory
+        if len(frustration_scores) >= 3:
+            first_half = sum(frustration_scores[:len(frustration_scores)//2]) / (len(frustration_scores)//2)
+            second_half = sum(frustration_scores[len(frustration_scores)//2:]) / (len(frustration_scores) - len(frustration_scores)//2)
+
+            if second_half > first_half + 0.1:
+                trajectory = "rising"
+            elif second_half < first_half - 0.1:
+                trajectory = "declining"
+            else:
+                trajectory = "constant"
+        else:
+            trajectory = "constant"
+
+        # Check for escalation patterns in any message
+        escalation_detected = any(
+            "escalation:" in s for r in self._history for s in r.signals
+        )
+
+        return ConversationSentiment(
+            message_count=len(self._history),
+            average_frustration=sum(frustration_scores) / len(frustration_scores),
+            peak_frustration=max(frustration_scores),
+            frustration_trajectory=trajectory,
+            escalation_pattern=escalation_detected,
+            sentiment_history=frustration_scores,
+        )
+
+    def detect_escalation_pattern(self, text: str) -> tuple[bool, list[str]]:
+        """
+        Detect if the message contains escalation patterns.
+
+        Args:
+            text: The customer message.
+
+        Returns:
+            Tuple of (has_escalation, signals).
+        """
+        signals: list[str] = []
+
+        for pattern in self.ESCALATION_PATTERNS:
+            if pattern.search(text):
+                match = pattern.search(text)
+                if match:
+                    signals.append(f"escalation_pattern:{match.group()[:30]}")
+
+        return len(signals) > 0, signals
+
+    def reset(self) -> None:
+        """Reset the conversation history."""
+        self._history = []
 
 
 # Singleton instance for easy access

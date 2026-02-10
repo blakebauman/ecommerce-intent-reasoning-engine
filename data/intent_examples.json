@@ -334,7 +334,17 @@
     "Checking on my return status",
     "I shipped the return, did you get it?",
     "Return not showing in my account",
-    "My return package was delivered, now what?"
+    "My return package was delivered, now what?",
+    "How long until you receive my return?",
+    "Return tracking shows delivered to warehouse",
+    "Is my return being inspected?",
+    "Status update on my return request",
+    "Return package in transit, when will you process?",
+    "My return was accepted, now what?",
+    "Still waiting for return confirmation",
+    "Return acknowledgment not received",
+    "Has the return been inspected yet?",
+    "When will I get return confirmation?"
   ],
   "RETURN_EXCHANGE.RETURN_POLICY": [
     "What's your return policy?",
@@ -372,7 +382,17 @@
     "Product stopped working, it's warranted",
     "I have a warranty issue",
     "This should be covered under warranty",
-    "Need warranty service"
+    "Need warranty service",
+    "How long is the warranty period?",
+    "My warranty hasn't expired yet",
+    "Warranty repair vs replacement",
+    "Extended warranty coverage",
+    "What's covered under warranty?",
+    "Manufacturer warranty claim",
+    "Warranty documentation needed?",
+    "How to start a warranty claim?",
+    "This item is still under guarantee",
+    "Warranty registration"
   ],
   "RETURN_EXCHANGE.STORE_CREDIT": [
     "Can I get store credit instead?",
@@ -383,7 +403,13 @@
     "Use my store credit",
     "I want store credit not a refund",
     "Check my gift card balance",
-    "Can I exchange for store credit?"
+    "Can I exchange for store credit?",
+    "Convert my refund to store credit",
+    "How do I use my store credit?",
+    "Store credit expiration date?",
+    "Can I combine store credits?",
+    "Transfer store credit to gift card",
+    "What's my credit balance?"
   ],
   "COMPLAINT.DAMAGED_ITEM": [
     "My item arrived damaged",
@@ -559,7 +585,16 @@
     "When will size large be available?",
     "Any idea when you'll have this again?",
     "Is this being restocked?",
-    "Expected restock date"
+    "Expected restock date",
+    "Will this item come back?",
+    "Can you let me know when it's back?",
+    "Future availability?",
+    "Set up a restock notification",
+    "Email me when back in stock",
+    "This sold out, when will you have more?",
+    "Waiting for restock on this item",
+    "Any updates on restocking?",
+    "Will you be getting more soon?"
   ],
   "PRODUCT_INQUIRY.SIZE_FIT": [
     "What size should I get?",
@@ -597,7 +632,18 @@
     "Compatibility question",
     "Does this fit model X?",
     "Will this work for me?",
-    "Is this version compatible?"
+    "Is this version compatible?",
+    "Will this case fit iPhone 15?",
+    "Does this adapter work with MacBook?",
+    "Is this compatible with Samsung Galaxy?",
+    "Will this charger work with my laptop?",
+    "Does this work with older models?",
+    "Is this accessory compatible?",
+    "Will this fit my 2022 Honda?",
+    "Compatible with Windows 11?",
+    "Does this support USB-C?",
+    "Will it work with my existing setup?",
+    "Is there a compatibility chart?"
   ],
   "PRODUCT_INQUIRY.MATERIALS": [
     "What is this made of?",
@@ -620,7 +666,18 @@
     "Can you explain how this works?",
     "Setup instructions",
     "User manual",
-    "How to assemble?"
+    "How to assemble?",
+    "What are the instructions for this?",
+    "Can you walk me through setup?",
+    "How do I get started with this?",
+    "Is there a tutorial?",
+    "Quick start guide?",
+    "How long does setup take?",
+    "Do I need any tools to assemble?",
+    "Installation instructions",
+    "How to operate this device",
+    "Tips for using this product",
+    "Best practices for this item"
   ],
   "ACCOUNT_BILLING.PAYMENT_ISSUE": [
     "My payment failed",
@@ -642,7 +699,14 @@
     "My card expired, need to update",
     "Change billing information",
     "Update card on file",
-    "New payment details"
+    "New payment details",
+    "I got a new credit card",
+    "Switch to a different payment method",
+    "Add PayPal as payment option",
+    "Update my billing address",
+    "Remove expired card from my account",
+    "Change default payment method",
+    "Add Apple Pay to my account"
   ],
   "ACCOUNT_BILLING.INVOICE": [
     "I need an invoice",
@@ -652,7 +716,14 @@
     "I need documentation for my purchase",
     "Tax invoice please",
     "Resend receipt",
-    "I need proof of purchase"
+    "I need proof of purchase",
+    "Can you email me the invoice?",
+    "I need an itemized receipt",
+    "Send invoice to my email",
+    "Need a business invoice for expense report",
+    "Can I get a VAT invoice?",
+    "PDF receipt please",
+    "Order invoice for order #12345"
   ],
   "ACCOUNT_BILLING.PROMO_CODE": [
     "My promo code doesn't work",
@@ -675,7 +746,18 @@
     "I don't want to auto-renew",
     "Subscription billing question",
     "Skip next subscription box",
-    "Manage my subscription"
+    "Manage my subscription",
+    "What's included in my subscription?",
+    "Downgrade my plan",
+    "Switch to annual billing",
+    "How do I modify my subscription?",
+    "Subscription renewal date",
+    "Change subscription frequency",
+    "Add items to my subscription",
+    "Remove item from subscription box",
+    "Subscription cost breakdown",
+    "Reactivate my subscription",
+    "What happens when I cancel?"
   ],
   "ACCOUNT_BILLING.ACCOUNT_ACCESS": [
     "I can't log in",
@@ -686,7 +768,18 @@
     "Login problems",
     "Password reset not working",
     "Can't sign in",
-    "Account access issue"
+    "Account access issue",
+    "My password doesn't work",
+    "I'm locked out of my account",
+    "Reset link not arriving",
+    "Two-factor authentication problem",
+    "Can't verify my account",
+    "Username not recognized",
+    "Account suspended, how to fix?",
+    "Forgot my email for login",
+    "Password reset email not received",
+    "How do I recover my account?",
+    "My login credentials aren't working"
   ],
   "ACCOUNT_BILLING.UPDATE_INFO": [
     "Update my email address",
@@ -752,7 +845,19 @@
     "What makes this one different?",
     "A vs B",
     "Which should I choose?",
-    "Difference between models"
+    "Difference between models",
+    "Compare these two products for me",
+    "What are the pros and cons of each?",
+    "Which model is better value?",
+    "How does this compare to the other one?",
+    "I'm torn between these two, which is better?",
+    "Can you help me decide between X and Y?",
+    "Feature comparison please",
+    "What's the upgrade from the basic model?",
+    "Regular vs premium version",
+    "Which has better reviews?",
+    "Side by side comparison",
+    "What's the price difference between these?"
   ],
   "DISCOVERY.BEST_SELLER": [
     "What's popular?",
@@ -762,7 +867,14 @@
     "Top rated items",
     "What's trending?",
     "Customer favorites",
-    "Highly rated products"
+    "Highly rated products",
+    "Show me your bestsellers",
+    "What are your top sellers?",
+    "Most reviewed products",
+    "What's everyone else buying?",
+    "Popular items this week",
+    "Show me customer favorites",
+    "Top picks"
   ],
   "DISCOVERY.NEW_ARRIVALS": [
     "New arrivals",
@@ -788,7 +900,20 @@
     "What's a good gift?",
     "Gift recommendations",
     "Help me find a gift",
-    "Present ideas"
+    "Present ideas",
+    "Looking for a gift for my wife",
+    "Need a present for my mom's birthday",
+    "What would be a good anniversary gift?",
+    "Help me pick a gift for my dad",
+    "Gift for a teenager",
+    "What do you suggest for a housewarming gift?",
+    "I need to find a wedding gift",
+    "Looking for a graduation gift",
+    "Christmas gift ideas",
+    "Valentine's Day gift suggestions",
+    "What's popular as a gift?",
+    "Gift under $50",
+    "Unique gift ideas please"
   ],
   "META.GREETING": [
     "Hello",
@@ -891,5 +1016,104 @@
     "What's for dinner?",
     "How tall is the Eiffel Tower?",
     "Random question not about orders"
+  ],
+  "LOYALTY_REWARDS.POINTS_BALANCE": [
+    "How many points do I have?",
+    "Check my rewards balance",
+    "What's my points total?",
+    "Loyalty points inquiry",
+    "How many reward points have I earned?"
+  ],
+  "LOYALTY_REWARDS.EARN_POINTS": [
+    "How do I earn points?",
+    "How to get more rewards?",
+    "Do I get points for this purchase?",
+    "Points per dollar spent?",
+    "Bonus points promotion?"
+  ],
+  "LOYALTY_REWARDS.REDEEM_POINTS": [
+    "Redeem my points",
+    "Use my rewards points",
+    "I want to apply my points to this order",
+    "Can I use points for a discount?",
+    "Redeem points for free shipping"
+  ],
+  "LOYALTY_REWARDS.MEMBER_STATUS": [
+    "What's my member status?",
+    "Am I gold or platinum?",
+    "What tier am I in?",
+    "How do I get to the next level?",
+    "VIP member benefits"
+  ],
+  "LOYALTY_REWARDS.POINTS_VALUE": [
+    "How much is this worth in points?",
+    "Points to dollar conversion",
+    "What can I get with my points?",
+    "Are points worth more on certain items?",
+    "Points redemption value"
+  ],
+  "SHIPPING.SHIPPING_OPTIONS": [
+    "What shipping methods are available?",
+    "Shipping options for my order",
+    "Do you have express shipping?",
+    "What are your delivery options?",
+    "Same day delivery available?",
+    "Standard vs expedited shipping",
+    "Can I choose my carrier?",
+    "Next day shipping option?"
+  ],
+  "SHIPPING.INTERNATIONAL": [
+    "Do you ship internationally?",
+    "Can you ship to Canada?",
+    "International shipping to UK?",
+    "Do you deliver outside the US?",
+    "Ship to Australia possible?",
+    "International delivery options"
+  ],
+  "SHIPPING.SHIPPING_COST": [
+    "How much is shipping?",
+    "Shipping cost to my address",
+    "Is shipping free?",
+    "Calculate shipping for my order",
+    "Delivery fee amount",
+    "Free shipping threshold",
+    "Shipping price to 90210",
+    "What's the delivery charge?"
+  ],
+  "SHIPPING.DELIVERY_LOCATIONS": [
+    "Do you deliver to my area?",
+    "Ship to PO box?",
+    "Deliver to APO/FPO address?",
+    "Can you ship to a business address?",
+    "Residential delivery available?",
+    "Shipping restrictions?"
+  ],
+  "BULK_WHOLESALE.BULK_DISCOUNT": [
+    "Do you offer bulk discounts?",
+    "Quantity discount available?",
+    "Price break for large orders?",
+    "Bulk pricing inquiry",
+    "Volume discount for 100 units?"
+  ],
+  "BULK_WHOLESALE.BUSINESS_ACCOUNT": [
+    "How do I set up a business account?",
+    "Corporate account registration",
+    "B2B ordering available?",
+    "Business customer signup",
+    "Wholesale account application"
+  ],
+  "BULK_WHOLESALE.MINIMUM_ORDER": [
+    "What's the minimum order quantity?",
+    "MOQ for wholesale?",
+    "Minimum purchase requirement?",
+    "How many do I need to buy for bulk pricing?",
+    "Is there a minimum for business orders?"
+  ],
+  "BULK_WHOLESALE.WHOLESALE_PRICING": [
+    "Wholesale pricing available?",
+    "Reseller pricing inquiry",
+    "Trade account pricing",
+    "Distributor pricing?",
+    "What are your wholesale rates?"
   ]
 }

@@ -665,3 +665,99 @@ class TestPolicyDecision:
         assert "auto_approval" in decision.rules_applied
         assert "escalation" in decision.rules_applied
         assert "priority_routing" in decision.rules_applied
+
+
+class TestTierAwareFrustrationThresholds:
+    """Tests for tier-aware frustration thresholds (Phase 2)."""
+
+    @pytest.fixture
+    def at_risk_customer(self) -> CustomerProfile:
+        """Create an at-risk tier customer."""
+        return CustomerProfile(
+            customer_id="cust-atrisk",
+            email="atrisk@example.com",
+            tier=CustomerTier.AT_RISK,
+            lifetime_value=100.0,
+            total_orders=2,
+            complaints_90d=2,
+        )
+
+    def test_vip_higher_frustration_threshold(
+        self,
+        engine: PolicyEngine,
+        vip_customer: CustomerProfile,
+        recent_order: OrderContext,
+    ) -> None:
+        """Test VIP customers have higher frustration threshold (0.8)."""
+        context = EnrichedContext(customer=vip_customer, order=recent_order)
+
+        # 0.75 should NOT escalate for VIP (threshold is 0.8)
+        decision = engine.evaluate(
+            context, "COMPLAINT.GENERAL", frustration_score=0.75
+        )
+        frustration_reasons = [r for r in decision.escalation_reasons if "frustration" in r.lower()]
+        assert len(frustration_reasons) == 0, "VIP should not escalate at 0.75 frustration"
+
+        # 0.85 SHOULD escalate for VIP
+        decision_high = engine.evaluate(
+            context, "COMPLAINT.GENERAL", frustration_score=0.85
+        )
+        frustration_reasons_high = [r for r in decision_high.escalation_reasons if "frustration" in r.lower()]
+        assert len(frustration_reasons_high) > 0, "VIP should escalate at 0.85 frustration"
+
+    def test_at_risk_lower_frustration_threshold(
+        self,
+        engine: PolicyEngine,
+        at_risk_customer: CustomerProfile,
+        recent_order: OrderContext,
+    ) -> None:
+        """Test at-risk customers have lower frustration threshold (0.5)."""
+        context = EnrichedContext(customer=at_risk_customer, order=recent_order)
+
+        # 0.55 SHOULD escalate for AT_RISK (threshold is 0.5)
+        decision = engine.evaluate(
+            context, "COMPLAINT.GENERAL", frustration_score=0.55
+        )
+        frustration_reasons = [r for r in decision.escalation_reasons if "frustration" in r.lower()]
+        assert len(frustration_reasons) > 0, "AT_RISK should escalate at 0.55 frustration"
+
+    def test_standard_customer_default_threshold(
+        self,
+        engine: PolicyEngine,
+        standard_customer: CustomerProfile,
+        recent_order: OrderContext,
+    ) -> None:
+        """Test standard customers use default threshold (0.7)."""
+        context = EnrichedContext(customer=standard_customer, order=recent_order)
+
+        # 0.65 should NOT escalate for standard
+        decision = engine.evaluate(
+            context, "COMPLAINT.GENERAL", frustration_score=0.65
+        )
+        frustration_reasons = [r for r in decision.escalation_reasons if "frustration" in r.lower()]
+        assert len(frustration_reasons) == 0, "Standard should not escalate at 0.65 frustration"
+
+        # 0.75 SHOULD escalate for standard
+        decision_high = engine.evaluate(
+            context, "COMPLAINT.GENERAL", frustration_score=0.75
+        )
+        frustration_reasons_high = [r for r in decision_high.escalation_reasons if "frustration" in r.lower()]
+        assert len(frustration_reasons_high) > 0, "Standard should escalate at 0.75 frustration"
+
+    def test_tier_shown_in_escalation_reason(
+        self,
+        engine: PolicyEngine,
+        vip_customer: CustomerProfile,
+        recent_order: OrderContext,
+    ) -> None:
+        """Test that tier is shown in escalation reason."""
+        context = EnrichedContext(customer=vip_customer, order=recent_order)
+        decision = engine.evaluate(
+            context, "COMPLAINT.GENERAL", frustration_score=0.9
+        )
+
+        # Find the frustration-related escalation reason
+        frustration_reasons = [r for r in decision.escalation_reasons if "frustration" in r.lower()]
+        assert len(frustration_reasons) > 0
+        # The reason should mention the tier
+        assert "vip" in frustration_reasons[0].lower()

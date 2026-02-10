@@ -4,9 +4,31 @@ from dataclasses import dataclass
 from enum import Enum
 
 from intent_engine.extractors.embedding import EmbeddingExtractor
+from intent_engine.models.entity import EntityType, ExtractedEntity
 from intent_engine.models.intent import IntentConfidence, ResolvedIntent
 from intent_engine.models.response import MatchResult
 from intent_engine.storage.vector_store import SimilarityMatch, VectorStore
+
+# Mapping of intent codes to expected entity types for confidence boosting
+INTENT_EXPECTED_ENTITIES: dict[str, set[EntityType]] = {
+    "ORDER_STATUS.WISMO": {EntityType.ORDER_ID, EntityType.TRACKING_NUMBER},
+    "ORDER_STATUS.DELIVERY_ESTIMATE": {EntityType.ORDER_ID},
+    "ORDER_STATUS.TRACKING_ISSUE": {EntityType.TRACKING_NUMBER, EntityType.ORDER_ID},
+    "ORDER_MODIFY.CANCEL_ORDER": {EntityType.ORDER_ID},
+    "ORDER_MODIFY.CHANGE_ADDRESS": {EntityType.ORDER_ID, EntityType.ADDRESS},
+    "ORDER_MODIFY.CHANGE_ITEMS": {EntityType.ORDER_ID, EntityType.PRODUCT_SKU, EntityType.SIZE, EntityType.COLOR},
+    "RETURN_EXCHANGE.RETURN_INITIATE": {EntityType.ORDER_ID, EntityType.REASON},
+    "RETURN_EXCHANGE.EXCHANGE_REQUEST": {EntityType.ORDER_ID, EntityType.SIZE, EntityType.COLOR},
+    "RETURN_EXCHANGE.REFUND_STATUS": {EntityType.ORDER_ID, EntityType.MONEY_AMOUNT},
+    "COMPLAINT.DAMAGED_ITEM": {EntityType.ORDER_ID, EntityType.REASON},
+    "COMPLAINT.WRONG_ITEM": {EntityType.ORDER_ID, EntityType.PRODUCT_SKU, EntityType.COLOR, EntityType.SIZE},
+    "COMPLAINT.MISSING_ITEM": {EntityType.ORDER_ID, EntityType.PRODUCT_SKU},
+    "PRODUCT_INQUIRY.STOCK": {EntityType.PRODUCT_SKU, EntityType.SIZE, EntityType.COLOR},
+    "PRODUCT_INQUIRY.COMPATIBILITY": {EntityType.PRODUCT_SKU},
+}
+
+# Confidence boost when extracted entities match expected entities
+ENTITY_CONFIDENCE_BOOST = 0.05
 
 
 class MatchDecision(str, Enum):
@@ -200,3 +222,76 @@ class IntentMatcher:
         result = await self.match(text, embedding, top_k=3)
         hints = [m.intent_code for m in result.top_matches]
         return result.top_matches, hints
+
+    async def match_with_entity_boost(
+        self,
+        text: str,
+        entities: list[ExtractedEntity],
+        embedding: list[float] | None = None,
+        top_k: int = 5,
+    ) -> MatchingResult:
+        """
+        Match with entity-based confidence boosting.
+
+        When extracted entities overlap with expected entity types for an intent,
+        apply a 5% confidence boost to the match similarity.
+
+        Args:
+            text: The customer message to classify.
+            entities: Extracted entities from the message.
+            embedding: Pre-computed embedding (optional).
+            top_k: Number of matches to retrieve.
+
+        Returns:
+            MatchingResult with potentially boosted confidence.
+        """
+        # Get base match result
+        result = await self.match(text, embedding, top_k)
+
+        if not result.top_matches or not entities:
+            return result
+
+        # Extract entity types present in the message
+        extracted_types = {e.entity_type for e in entities}
+
+        # Check for entity overlap with top match
+        top_match = result.top_matches[0]
+        expected_entities = INTENT_EXPECTED_ENTITIES.get(top_match.intent_code, set())
+
+        if expected_entities and extracted_types.intersection(expected_entities):
+            # Apply confidence boost
+            boosted_similarity = min(1.0, top_match.similarity * (1 + ENTITY_CONFIDENCE_BOOST))
+
+            # Update the top match with boosted similarity
+            result.top_matches[0] = MatchResult(
+                intent_code=top_match.intent_code,
+                similarity=boosted_similarity,
+                matched_example=top_match.matched_example,
+            )
+
+            # If this pushes us over the fast path threshold, update the result
+            if (
+                result.decision != MatchDecision.FAST_PATH
+                and boosted_similarity >= self.fast_path_threshold
+                and not result.is_ambiguous
+            ):
+                parts = top_match.intent_code.split(".")
+                category = parts[0]
+                intent = parts[1] if len(parts) > 1 else parts[0]
+
+                overlapping = extracted_types.intersection(expected_entities)
+                evidence = [
+                    top_match.matched_example,
+                    f"Entity boost: {', '.join(e.value for e in overlapping)}",
+                ]
+
+                result.resolved_intent = ResolvedIntent(
+                    category=category,
+                    intent=intent,
+                    confidence=boosted_similarity,
+                    confidence_tier=IntentConfidence.HIGH,
+                    evidence=evidence,
+                )
+                result.decision = MatchDecision.FAST_PATH
+
+        return result

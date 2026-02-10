@@ -416,7 +416,10 @@ class IntentEngine:
                     intent=intent_name,
                     confidence=best_match.similarity,
                     confidence_tier=tier,
-                    evidence=[f"Best match (fallback): {best_match.matched_example[:50]}..."],
+                    evidence=[
+                        f"Best match (fallback): {best_match.matched_example[:50]}...",
+                        f"Fallback: LLM unavailable. Based on {best_match.similarity:.2f} similarity to '{best_match.matched_example[:40]}...'"
+                    ],
                 )
                 return ReasoningResult(
                     request_id=request.request_id,

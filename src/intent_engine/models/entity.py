@@ -24,6 +24,35 @@ class EntityType(str, Enum):
     EMAIL = "email"
     PHONE = "phone"
 
+    # Phase 5: Advanced entity types
+    DAMAGE_SEVERITY = "damage_severity"  # "slight scratch", "completely broken"
+    DEFECT_CATEGORY = "defect_category"  # "color_mismatch", "size_wrong", "broken"
+    BRAND_NAME = "brand_name"  # Product brand for lookups
+    CARRIER = "carrier"  # "UPS", "FedEx", "USPS"
+    COMPLAINT_REASON = "complaint_reason"  # Structured reason category
+
+
+class DamageSeverity(str, Enum):
+    """Severity levels for damage reports."""
+
+    MINOR = "minor"  # Cosmetic, doesn't affect function
+    MODERATE = "moderate"  # Noticeable, partial function
+    SEVERE = "severe"  # Major damage, non-functional
+    DESTROYED = "destroyed"  # Complete loss
+
+
+class DefectCategory(str, Enum):
+    """Categories of product defects."""
+
+    COLOR_MISMATCH = "color_mismatch"
+    SIZE_WRONG = "size_wrong"
+    BROKEN = "broken"
+    MISSING_PARTS = "missing_parts"
+    MANUFACTURING_DEFECT = "manufacturing_defect"
+    SHIPPING_DAMAGE = "shipping_damage"
+    NOT_AS_DESCRIBED = "not_as_described"
+    FUNCTIONALITY_ISSUE = "functionality_issue"
+
 
 class ExtractedEntity(BaseModel):
     """A single extracted entity from the input text."""

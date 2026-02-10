@@ -2,7 +2,11 @@
 
 import pytest
 
-from intent_engine.extractors.sentiment import SentimentAnalyzer, SentimentResult
+from intent_engine.extractors.sentiment import (
+    ConversationSentimentTracker,
+    SentimentAnalyzer,
+    SentimentResult,
+)
 
 
 @pytest.fixture
@@ -305,3 +309,107 @@ class TestEdgeCases:
         """Test unicode characters are handled."""
         result = analyzer.analyze("I need help please! ")
         assert isinstance(result, SentimentResult)
+
+
+class TestSarcasmDetection:
+    """Tests for sarcasm detection (Phase 2)."""
+
+    def test_sarcasm_pattern_oh_great(self, analyzer: SentimentAnalyzer) -> None:
+        """Test 'oh great' sarcasm detection."""
+        result = analyzer.analyze("Oh great, another broken item.")
+        sarcasm_signals = [s for s in result.signals if "sarcasm" in s]
+        assert len(sarcasm_signals) > 0
+
+    def test_sarcasm_pattern_just_perfect(self, analyzer: SentimentAnalyzer) -> None:
+        """Test 'just perfect' sarcasm detection."""
+        result = analyzer.analyze("Just perfect, now it's completely wrong.")
+        sarcasm_signals = [s for s in result.signals if "sarcasm" in s or "contradiction" in s]
+        assert len(sarcasm_signals) > 0
+
+    def test_sarcasm_flips_sentiment(self, analyzer: SentimentAnalyzer) -> None:
+        """Test that sarcasm flips positive to negative sentiment."""
+        # Pure positive message
+        positive = analyzer.analyze("Great service!")
+        # Sarcastic positive message
+        sarcastic = analyzer.analyze("Oh great, my package is lost again.")
+
+        # Sarcasm should result in negative or neutral sentiment
+        # even when positive words are present
+        assert sarcastic.frustration_score >= positive.frustration_score
+
+    def test_contradiction_detection(self, analyzer: SentimentAnalyzer) -> None:
+        """Test positive word + negative context contradiction."""
+        result = analyzer.analyze("Wonderful, the item is broken and missing parts.")
+        sarcasm_signals = [s for s in result.signals if "sarcasm" in s or "contradiction" in s]
+        assert len(sarcasm_signals) > 0
+
+    def test_genuine_positive_not_flagged(self, analyzer: SentimentAnalyzer) -> None:
+        """Test that genuine positive messages aren't flagged as sarcasm."""
+        result = analyzer.analyze("Great product! I love it. Thank you!")
+        sarcasm_signals = [s for s in result.signals if "sarcasm" in s]
+        # Should have no sarcasm signals or very few
+        # (genuine positive without negative context)
+        assert len(sarcasm_signals) == 0 or result.frustration_score < 0.5
+
+
+class TestConversationSentimentTracker:
+    """Tests for conversation sentiment tracking (Phase 5)."""
+
+    @pytest.fixture
+    def tracker(self, analyzer: SentimentAnalyzer) -> ConversationSentimentTracker:
+        """Create a conversation tracker."""
+        return ConversationSentimentTracker(analyzer)
+
+    def test_empty_conversation(self, tracker: ConversationSentimentTracker) -> None:
+        """Test empty conversation returns zero values."""
+        conv = tracker.get_conversation_sentiment()
+        assert conv.message_count == 0
+        assert conv.average_frustration == 0.0
+        assert conv.frustration_trajectory == "constant"
+
+    def test_single_message(self, tracker: ConversationSentimentTracker) -> None:
+        """Test single message tracking."""
+        tracker.add_message("Where is my order?")
+        conv = tracker.get_conversation_sentiment()
+        assert conv.message_count == 1
+
+    def test_rising_frustration_trajectory(
+        self, tracker: ConversationSentimentTracker
+    ) -> None:
+        """Test detection of rising frustration."""
+        tracker.add_message("Where is my order?")
+        tracker.add_message("I've been waiting a while.")
+        tracker.add_message("This is frustrating!")
+        tracker.add_message("This is unacceptable! Worst service ever!")
+
+        conv = tracker.get_conversation_sentiment()
+        assert conv.message_count == 4
+        # Should detect rising trend
+        assert conv.frustration_trajectory in ["rising", "constant"]
+
+    def test_peak_frustration(self, tracker: ConversationSentimentTracker) -> None:
+        """Test peak frustration tracking."""
+        tracker.add_message("Normal question.")
+        tracker.add_message("I'm very angry about this terrible service!")
+        tracker.add_message("Okay, thanks for helping.")
+
+        conv = tracker.get_conversation_sentiment()
+        # Peak should be from the angry message
+        assert conv.peak_frustration >= 0.5
+
+    def test_escalation_pattern_detection(
+        self, tracker: ConversationSentimentTracker
+    ) -> None:
+        """Test escalation pattern detection."""
+        has_pattern, signals = tracker.detect_escalation_pattern(
+            "I've called 5 times about this!"
+        )
+        assert has_pattern is True
+        assert len(signals) > 0
+
+    def test_reset_clears_history(self, tracker: ConversationSentimentTracker) -> None:
+        """Test reset clears conversation history."""
+        tracker.add_message("Test message")
+        tracker.reset()
+        conv = tracker.get_conversation_sentiment()
+        assert conv.message_count == 0

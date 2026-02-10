@@ -2,8 +2,15 @@
 
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+import spacy
+from spacy.language import Language
 
 from intent_engine.models.response import MatchResult
+
+if TYPE_CHECKING:
+    pass
 
 
 @dataclass
@@ -56,15 +63,25 @@ class CompoundDetector:
         r"\b(check|find|get|send|ship|deliver)\b",
     ]
 
+    # Signal type weights for weighted confidence calculation
+    SIGNAL_WEIGHTS = {
+        "conjunction": 0.5,
+        "multi_action": 1.0,
+        "multiple_sentences": 0.8,
+        "category_mix": 0.8,
+    }
+
     def __init__(
         self,
         compound_threshold: float = 0.60,
+        spacy_model: str = "en_core_web_sm",
     ) -> None:
         """
         Initialize the compound detector.
 
         Args:
             compound_threshold: Minimum confidence to flag as compound.
+            spacy_model: spaCy model for sentence segmentation.
         """
         self.compound_threshold = compound_threshold
         self._conjunction_patterns = [
@@ -73,6 +90,15 @@ class CompoundDetector:
         self._action_patterns = [
             re.compile(p, re.IGNORECASE) for p in self.ACTION_VERBS
         ]
+        self._nlp: Language | None = None
+        self._spacy_model = spacy_model
+
+    @property
+    def nlp(self) -> Language:
+        """Lazy-load spaCy model."""
+        if self._nlp is None:
+            self._nlp = spacy.load(self._spacy_model)
+        return self._nlp
 
     def detect(
         self,
@@ -105,12 +131,16 @@ class CompoundDetector:
             category_signals = self._detect_category_mix(top_matches)
             signals.extend(category_signals)
 
-        # Calculate overall confidence
+        # Calculate overall confidence using weighted signal aggregation
         if not signals:
             confidence = 0.0
         else:
-            # Weight signals and combine
-            confidence = min(1.0, sum(s.confidence for s in signals) / 2)
+            # Weighted signal combination by type to reduce false positives
+            weighted_sum = sum(
+                s.confidence * self.SIGNAL_WEIGHTS.get(s.signal_type, 0.7)
+                for s in signals
+            )
+            confidence = min(1.0, weighted_sum / len(signals))
 
         is_compound = confidence >= self.compound_threshold
 
@@ -138,11 +168,18 @@ class CompoundDetector:
         return signals
 
     def _segment_sentences(self, text: str) -> list[str]:
-        """Split text into sentence segments."""
-        # Split on sentence boundaries and common separators
-        segments = re.split(r"[.!?]\s+|\s*[,;]\s+(?=and|but|also|I\s)", text)
-        # Clean up and filter empty segments
-        return [s.strip() for s in segments if s.strip() and len(s.strip()) > 3]
+        """Split text into sentence segments using spaCy.
+
+        Uses spaCy's sentence tokenizer which handles:
+        - SMS-style messages without proper punctuation
+        - Ellipses (...)
+        - Abbreviations (Mr., Dr., etc.)
+        - Edge cases that regex-based splitting misses
+        """
+        doc = self.nlp(text)
+        segments = [sent.text.strip() for sent in doc.sents]
+        # Filter empty segments and very short ones (likely artifacts)
+        return [s for s in segments if s and len(s) > 3]
 
     def _detect_multi_action_sentences(
         self, sentences: list[str]
