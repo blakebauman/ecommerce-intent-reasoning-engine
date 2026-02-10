@@ -2,26 +2,32 @@
 
 A reasoning engine for eCommerce intent classification and resolution. This is not a simple classifier — it decomposes compound intents, resolves conflicts, and outputs structured action plans.
 
-## MVP Scope (Phase 1)
+## Features
 
-- **8 core order lifecycle intents**
-- **Chat channel only**
+- **62 intents** across 10 categories
+- **Multi-channel support**: Chat, Email, Form
 - **Platform integrations**: Shopify, Adobe Commerce (read-only)
-- **Fast path matching** (embedding similarity)
-- **LLM reasoning** for compound intents
+- **Fast path matching** (embedding similarity) — handles ~50% of requests
+- **LLM reasoning** for compound/ambiguous intents
+- **Sentiment analysis** with sarcasm detection
+- **Tier-aware escalation** (VIP, AT_RISK, Standard)
+- **Entity extraction** (orders, tracking, damage severity, defect categories)
 
-### Core Intents
+### Intent Categories
 
-| Intent | Description |
-|--------|-------------|
-| `ORDER_STATUS.WISMO` | Where is my order |
-| `ORDER_STATUS.DELIVERY_ESTIMATE` | When will it arrive |
-| `ORDER_MODIFY.CANCEL_ORDER` | Cancel my order |
-| `ORDER_MODIFY.CHANGE_ADDRESS` | Change shipping address |
-| `RETURN_EXCHANGE.RETURN_INITIATE` | Start a return |
-| `RETURN_EXCHANGE.EXCHANGE_REQUEST` | Exchange for different item |
-| `RETURN_EXCHANGE.REFUND_STATUS` | Check refund status |
-| `COMPLAINT.DAMAGED_ITEM` | Item arrived damaged |
+| Category | Intents | Examples |
+|----------|---------|----------|
+| `ORDER_STATUS` | WISMO, DELIVERY_ESTIMATE, CONFIRMATION, TRACKING_ISSUE | "Where is my order?" |
+| `ORDER_MODIFY` | CANCEL_ORDER, CHANGE_ADDRESS, CHANGE_ITEMS, EXPEDITE | "Cancel my order" |
+| `RETURN_EXCHANGE` | RETURN_INITIATE, EXCHANGE_REQUEST, REFUND_STATUS, WARRANTY_CLAIM, STORE_CREDIT | "I want to return this" |
+| `COMPLAINT` | DAMAGED_ITEM, WRONG_ITEM, MISSING_ITEM, QUALITY_ISSUE, LATE_DELIVERY, LOST_PACKAGE | "Item arrived broken" |
+| `PRODUCT_INQUIRY` | STOCK, RESTOCK, SIZE_FIT, FEATURES, COMPATIBILITY, MATERIALS, USAGE | "Is this in stock?" |
+| `ACCOUNT_BILLING` | PAYMENT_ISSUE, UPDATE_PAYMENT, INVOICE, PROMO_CODE, SUBSCRIPTION, ACCOUNT_ACCESS | "My payment failed" |
+| `DISCOVERY` | RECOMMENDATION, COMPARISON, BEST_SELLER, NEW_ARRIVALS, GIFT_SUGGESTION | "What do you recommend?" |
+| `LOYALTY_REWARDS` | POINTS_BALANCE, EARN_POINTS, REDEEM_POINTS, MEMBER_STATUS, POINTS_VALUE | "How many points do I have?" |
+| `SHIPPING` | SHIPPING_OPTIONS, INTERNATIONAL, SHIPPING_COST, DELIVERY_TIME | "Do you ship internationally?" |
+| `BULK_WHOLESALE` | BULK_DISCOUNT, BUSINESS_ACCOUNT, MINIMUM_ORDER, WHOLESALE_PRICING | "Volume discount available?" |
+| `META` | GREETING, FAREWELL, HUMAN_HANDOFF, FEEDBACK, UNCLEAR, OFF_TOPIC | "I want to speak to a manager" |
 
 ## Quick Start
 
@@ -41,7 +47,7 @@ cp .env.example .env
 
 # 2. Start infrastructure and API via Docker (recommended)
 just up          # Start postgres, redis, and API
-just seed        # Seed intent catalog (279 examples)
+just seed        # Seed intent catalog (1010 examples)
 
 # Or for local development:
 just setup       # Create venv and install dependencies
@@ -364,9 +370,18 @@ ADOBE_COMMERCE_WEBHOOK_ENABLED=true
 
 ## Success Criteria
 
-1. **F1 > 85%** on golden eval set (200 examples)
+1. **F1 > 85%** on golden eval set (575 examples)
 2. **Fast path latency < 200ms** (p99)
 3. **Compound detection recall > 85%**
+
+### Current Metrics
+
+| Metric | Value |
+|--------|-------|
+| Macro F1 | 81.0% |
+| Fast Path Rate | 51% |
+| Training Examples | 1010 |
+| Intent Coverage | 62 intents |
 
 ## License
 
