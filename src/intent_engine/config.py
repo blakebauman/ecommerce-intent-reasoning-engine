@@ -89,6 +89,44 @@ class Settings(BaseSettings):
         description="Shopify Admin API access token",
     )
 
+    # Adobe Commerce Integration - PaaS (self-hosted)
+    adobe_commerce_base_url: str = Field(
+        default="",
+        description="Adobe Commerce store base URL",
+    )
+    adobe_commerce_access_token: str = Field(
+        default="",
+        description="Adobe Commerce integration access token (PaaS)",
+    )
+    adobe_commerce_store_code: str = Field(
+        default="default",
+        description="Adobe Commerce store view code",
+    )
+
+    # Adobe Commerce Integration - SaaS (Cloud Service)
+    adobe_commerce_ims_client_id: str = Field(
+        default="",
+        description="Adobe IMS client ID for OAuth (SaaS)",
+    )
+    adobe_commerce_ims_client_secret: str = Field(
+        default="",
+        description="Adobe IMS client secret for OAuth (SaaS)",
+    )
+    adobe_commerce_ims_org_id: str = Field(
+        default="",
+        description="Adobe organization ID (SaaS)",
+    )
+
+    # Adobe Commerce Webhooks
+    adobe_commerce_webhook_secret: str = Field(
+        default="",
+        description="Adobe Commerce webhook HMAC secret",
+    )
+    adobe_commerce_webhook_enabled: bool = Field(
+        default=True,
+        description="Enable Adobe Commerce webhook processing",
+    )
+
     # API Settings
     api_key: str = Field(
         default="dev-api-key",
