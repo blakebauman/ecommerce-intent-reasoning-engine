@@ -78,6 +78,70 @@ services:
     profiles:
       - test
 
+  # Phase 3: Observability Stack
+  jaeger:
+    image: jaegertracing/all-in-one:1.63
+    container_name: intent-engine-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    profiles:
+      - observability
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: intent-engine-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./etc/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    profiles:
+      - observability
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: intent-engine-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./etc/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+      - jaeger
+    profiles:
+      - observability
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.0
+    container_name: intent-engine-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+      - "8888:8888"    # Prometheus metrics
+    volumes:
+      - ./etc/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    depends_on:
+      - jaeger
+      - prometheus
+    profiles:
+      - observability-collector
+
 volumes:
   postgres_data:
   redis_data:
+  prometheus_data:
+  grafana_data:

@@ -30,6 +30,21 @@ dependencies = [
     # Multi-agent access
     "mcp>=1.9.0",                # MCP server for agent access
     "starlette>=0.40.0",         # SSE transport for MCP
+    # Phase 3: OpenTelemetry observability
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-exporter-otlp>=1.27.0",
+    "opentelemetry-exporter-prometheus>=0.48b0",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "opentelemetry-instrumentation-httpx>=0.48b0",
+    "opentelemetry-instrumentation-redis>=0.48b0",
+    "opentelemetry-instrumentation-asyncpg>=0.48b0",
+    # Phase 3: Structured logging
+    "python-json-logger>=3.2.0",
+    # Phase 3: Prometheus metrics
+    "prometheus-client>=0.21.0",
+    # Phase 3: WebSocket support (already in uvicorn[standard])
+    "websockets>=13.0.0",
 ]
 
 [project.optional-dependencies]

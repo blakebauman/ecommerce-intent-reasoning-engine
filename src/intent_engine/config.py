@@ -157,6 +157,126 @@ class Settings(BaseSettings):
         description="spaCy model for NER",
     )
 
+    # =========================================================================
+    # Phase 3: Production Hardening Settings
+    # =========================================================================
+
+    # Observability - OpenTelemetry
+    otlp_endpoint: str = Field(
+        default="http://localhost:4317",
+        description="OTLP gRPC endpoint for traces",
+    )
+    log_level: str = Field(
+        default="INFO",
+        description="Log level (DEBUG, INFO, WARNING, ERROR)",
+    )
+    log_json: bool = Field(
+        default=True,
+        description="Enable JSON structured logging",
+    )
+    enable_tracing: bool = Field(
+        default=True,
+        description="Enable OpenTelemetry tracing",
+    )
+    enable_metrics: bool = Field(
+        default=True,
+        description="Enable Prometheus metrics",
+    )
+    service_name: str = Field(
+        default="intent-engine",
+        description="Service name for telemetry",
+    )
+    service_environment: str = Field(
+        default="development",
+        description="Deployment environment (development, staging, production)",
+    )
+
+    # Multi-Tenancy
+    enable_multi_tenant: bool = Field(
+        default=True,
+        description="Enable multi-tenant mode",
+    )
+    default_rate_limit_rpm: int = Field(
+        default=100,
+        description="Default rate limit (requests per minute)",
+    )
+    default_rate_limit_burst: int = Field(
+        default=20,
+        description="Default burst size for rate limiting",
+    )
+    tenant_dev_mode: bool = Field(
+        default=True,
+        description="Enable dev mode (accept any API key)",
+    )
+
+    # Batch Processing
+    batch_worker_concurrency: int = Field(
+        default=5,
+        description="Number of concurrent item processors",
+    )
+    batch_max_items: int = Field(
+        default=1000,
+        description="Maximum items per batch job",
+    )
+    batch_job_ttl_hours: int = Field(
+        default=24,
+        description="Hours to keep completed batch jobs",
+    )
+    batch_poll_interval: float = Field(
+        default=1.0,
+        description="Seconds between queue polls",
+    )
+    batch_worker_enabled: bool = Field(
+        default=True,
+        description="Enable background batch worker",
+    )
+
+    # WebSocket
+    ws_ping_interval: int = Field(
+        default=30,
+        description="WebSocket ping interval in seconds",
+    )
+    ws_max_connections_per_tenant: int = Field(
+        default=100,
+        description="Maximum WebSocket connections per tenant",
+    )
+    ws_enabled: bool = Field(
+        default=True,
+        description="Enable WebSocket API",
+    )
+
+    # WooCommerce Integration
+    woocommerce_store_url: str = Field(
+        default="",
+        description="WooCommerce store URL (e.g., https://mystore.com)",
+    )
+    woocommerce_consumer_key: str = Field(
+        default="",
+        description="WooCommerce REST API consumer key",
+    )
+    woocommerce_consumer_secret: str = Field(
+        default="",
+        description="WooCommerce REST API consumer secret",
+    )
+    woocommerce_webhook_secret: str = Field(
+        default="",
+        description="WooCommerce webhook HMAC secret",
+    )
+
+    # BigCommerce Integration
+    bigcommerce_store_hash: str = Field(
+        default="",
+        description="BigCommerce store hash",
+    )
+    bigcommerce_access_token: str = Field(
+        default="",
+        description="BigCommerce API access token",
+    )
+    bigcommerce_client_secret: str = Field(
+        default="",
+        description="BigCommerce app client secret (for webhooks)",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

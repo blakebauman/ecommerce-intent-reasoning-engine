@@ -1,4 +1,4 @@
-"""API middleware for authentication and logging."""
+"""API middleware for authentication, logging, and tracing."""
 
 import logging
 import time
@@ -10,6 +10,8 @@ from fastapi.security import APIKeyHeader
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from intent_engine.config import get_settings
+from intent_engine.observability.tracing import add_span_attribute, get_current_trace_id
+from intent_engine.tenancy.context import get_current_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +69,21 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Response]
     ) -> Response:
-        """Log request details and timing."""
+        """Log request details and timing with trace correlation."""
         # Generate request ID if not present
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
 
         # Add request ID to state for access in handlers
         request.state.request_id = request_id
+
+        # Get trace ID and tenant ID for correlation
+        trace_id = get_current_trace_id()
+        tenant_id = get_current_tenant_id()
+
+        # Add attributes to current span
+        add_span_attribute("http.request_id", request_id)
+        if tenant_id:
+            add_span_attribute("tenant.id", tenant_id)
 
         # Log request start
         start_time = time.perf_counter()
@@ -80,6 +91,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             "Request started",
             extra={
                 "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
                 "method": request.method,
                 "path": request.url.path,
                 "client": request.client.host if request.client else "unknown",
@@ -96,6 +109,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "Request failed",
                 extra={
                     "request_id": request_id,
+                    "trace_id": trace_id,
+                    "tenant_id": tenant_id,
                     "error": str(e),
                     "processing_time_ms": processing_time,
                 },
@@ -108,12 +123,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Add headers
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Processing-Time-Ms"] = str(processing_time)
+        if trace_id:
+            response.headers["X-Trace-ID"] = trace_id
 
         # Log request completion
         logger.info(
             "Request completed",
             extra={
                 "request_id": request_id,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
                 "status_code": response.status_code,
                 "processing_time_ms": processing_time,
             },

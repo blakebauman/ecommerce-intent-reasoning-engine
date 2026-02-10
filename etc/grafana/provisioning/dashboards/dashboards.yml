@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: 'Intent Engine'
+    orgId: 1
+    folder: 'Intent Engine'
+    folderUid: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
