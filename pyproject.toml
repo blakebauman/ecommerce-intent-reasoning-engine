@@ -23,6 +23,13 @@ dependencies = [
     "httpx>=0.28.0",
     "dateparser>=1.2.0",
     "numpy>=2.0.0",
+    # Phase 2 additions
+    "beautifulsoup4>=4.12.0",   # Email HTML parsing
+    "transformers>=4.40.0",      # Sentiment model
+    "torch>=2.0.0",              # Transformers backend
+    # Multi-agent access
+    "mcp>=1.9.0",                # MCP server for agent access
+    "starlette>=0.40.0",         # SSE transport for MCP
 ]
 
 [project.optional-dependencies]
@@ -37,6 +44,7 @@ dev = [
 [project.scripts]
 seed-catalog = "scripts.seed_catalog:main"
 run-eval = "scripts.run_eval:main"
+mcp-server = "intent_engine.mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -64,6 +64,20 @@ api:
     docker-compose up -d api
     docker-compose logs -f api
 
+# Run the MCP server for multi-agent access
+mcp:
+    .venv/bin/python -m intent_engine.mcp.server
+
+# Test A2A agent card endpoint
+a2a-test:
+    @echo "Testing A2A agent card..."
+    curl -s http://localhost:8000/.well-known/agent.json | python3 -m json.tool
+    @echo "\nTesting A2A task submission..."
+    curl -s -X POST http://localhost:8000/a2a/tasks \
+        -H "Content-Type: application/json" \
+        -d '{"action": "list_intent_taxonomy", "input": {}}' \
+        | python3 -m json.tool
+
 # === Testing ===
 
 # Run all tests
@@ -81,6 +95,22 @@ test-unit:
 # Run only integration tests
 test-int:
     .venv/bin/pytest tests/integration/ -v
+
+# Run tests in Docker container (avoids Python 3.14 spaCy issues)
+test-docker:
+    docker-compose run --rm api pytest tests/ -v
+
+# Run integration tests in Docker container
+test-int-docker:
+    docker-compose run --rm api pytest tests/integration/ -v
+
+# Run tests using dedicated test container (good practice for isolation)
+test-container:
+    docker-compose --profile test run --rm test pytest tests/ -v
+
+# Run integration tests using dedicated test container
+test-int-container:
+    docker-compose --profile test run --rm test pytest tests/integration/ -v
 
 # === Evaluation ===
 

@@ -7,6 +7,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from intent_engine.api.a2a_routes import a2a_router
 from intent_engine.api.middleware import RequestLoggingMiddleware
 from intent_engine.api.routes import router, set_engine
 from intent_engine.config import get_settings
@@ -73,6 +74,9 @@ def create_app() -> FastAPI:
 
     # Include routes
     app.include_router(router)
+
+    # Include A2A protocol routes
+    app.include_router(a2a_router)
 
     return app
 
