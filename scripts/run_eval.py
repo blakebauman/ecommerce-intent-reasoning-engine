@@ -7,8 +7,10 @@ import json
 import sys
 from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add project root and src to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
 
 from evals.runner import EvalRunner
 from intent_engine.config import get_settings
@@ -48,7 +50,6 @@ async def main() -> None:
     args = parser.parse_args()
 
     # Resolve paths
-    project_root = Path(__file__).parent.parent
     dataset_path = project_root / args.dataset
 
     if not dataset_path.exists():

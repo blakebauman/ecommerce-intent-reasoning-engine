@@ -4,7 +4,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from evals.metrics import EvalMetrics
 from intent_engine.engine import IntentEngine
@@ -146,7 +146,7 @@ class EvalRunner:
     async def run(
         self,
         examples: list[EvalExample],
-        progress_callback: callable | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> EvalMetrics:
         """
         Run evaluation on a list of examples.
@@ -186,7 +186,7 @@ class EvalRunner:
     async def run_from_file(
         self,
         filepath: str | Path,
-        progress_callback: callable | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> EvalMetrics:
         """
         Load dataset from file and run evaluation.
