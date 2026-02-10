@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from intent_engine.api.a2a_routes import a2a_router
+from intent_engine.api.agent_routes import router as agent_router
 from intent_engine.api.middleware import RequestLoggingMiddleware
 from intent_engine.api.routes import router, set_engine
 from intent_engine.api.webhooks import router as webhooks_router
@@ -81,6 +82,9 @@ def create_app() -> FastAPI:
 
     # Include webhook routes
     app.include_router(webhooks_router)
+
+    # Include agent routes
+    app.include_router(agent_router)
 
     return app
 

@@ -99,6 +99,86 @@ curl -X POST http://localhost:8000/v1/intent/resolve \
 }
 ```
 
+## Orchestration Agent
+
+The orchestration agent provides a complete customer service flow by combining intent classification, order data fetching, and response generation.
+
+### Chat Endpoint
+
+```bash
+curl -X POST http://localhost:8000/v1/agent/chat \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message_id": "msg-123",
+    "customer_email": "john@example.com",
+    "text": "Where is my order #12345?",
+    "platform": "shopify"
+  }'
+```
+
+### Response
+
+```json
+{
+  "message_id": "msg-123",
+  "response_text": "Your order #12345 is currently in transit via UPS. Track it here: https://...",
+  "intents": [{"category": "ORDER_STATUS", "intent": "WISMO", "confidence": 0.92}],
+  "actions": [{"action_type": "provide_order_status", "description": "Provide order status"}],
+  "confidence": 0.92,
+  "processing_time_ms": 250
+}
+```
+
+### How It Works
+
+```
+Customer Message
+       │
+       ▼
+┌──────────────────┐
+│  Intent Engine   │  → Classify intent (WISMO, Return, etc.)
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Platform Connector│  → Fetch order/customer data
+│ (Shopify/Adobe)  │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Response Generator│  → Generate customer response
+└────────┬─────────┘
+         │
+         ▼
+   Agent Response
+   (text + actions)
+```
+
+### Programmatic Usage
+
+```python
+from intent_engine.agents import CustomerServiceAgent, CustomerMessage
+from intent_engine.config import get_settings
+
+agent = CustomerServiceAgent(settings=get_settings())
+await agent.initialize()
+
+response = await agent.process_message(CustomerMessage(
+    message_id="msg-123",
+    customer_email="john@example.com",
+    text="Where is my order #12345?",
+    platform="shopify",
+))
+
+print(response.response_text)
+# "Your order #12345 is currently in transit..."
+
+print(response.actions[0].action_type)
+# ActionType.PROVIDE_ORDER_STATUS
+```
+
 ## Development
 
 This project uses [just](https://github.com/casey/just) as a command runner. Run `just` to see all available commands.
