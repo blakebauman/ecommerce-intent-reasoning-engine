@@ -25,7 +25,7 @@ class EngineComponents:
     vector_store: VectorStore
     intent_matcher: IntentMatcher
     compound_detector: CompoundDetector
-    decomposer: IntentDecomposer
+    decomposer: IntentDecomposer | None  # None if LLM not configured
 
 
 class IntentEngine:
@@ -83,9 +83,19 @@ class IntentEngine:
             compound_detector = CompoundDetector(
                 compound_threshold=self.settings.compound_detection_threshold
             )
-            decomposer = IntentDecomposer(
-                model_name=self.settings.llm_model
-            )
+
+            # Decomposer is optional - requires ANTHROPIC_API_KEY
+            decomposer: IntentDecomposer | None = None
+            try:
+                decomposer = IntentDecomposer(
+                    model_name=self.settings.llm_model
+                )
+            except Exception as e:
+                import logging
+                logging.warning(
+                    f"LLM decomposer not available: {e}. "
+                    "Fast path only - set ANTHROPIC_API_KEY for full functionality."
+                )
 
             self._components = EngineComponents(
                 entity_extractor=entity_extractor,
@@ -184,6 +194,63 @@ class IntentEngine:
 
         # REASONING PATH
         reasoning_trace.append("Decision: REASONING PATH")
+
+        # Check if LLM decomposer is available
+        if self.components.decomposer is None:
+            # Fallback: use best match from similarity search
+            reasoning_trace.append("Step 5: LLM not available - using best match fallback")
+            processing_time = int((time.perf_counter() - start_time) * 1000)
+
+            if match_result.top_matches:
+                best_match = match_result.top_matches[0]
+                # Parse intent code (e.g., "ORDER_STATUS.WISMO" -> category="ORDER_STATUS", intent="WISMO")
+                parts = best_match.intent_code.split(".")
+                category = parts[0] if parts else "UNKNOWN"
+                intent_name = parts[1] if len(parts) > 1 else "UNKNOWN"
+
+                from intent_engine.models.intent import IntentConfidence
+                if best_match.similarity >= 0.85:
+                    tier = IntentConfidence.HIGH
+                elif best_match.similarity >= 0.60:
+                    tier = IntentConfidence.MEDIUM
+                else:
+                    tier = IntentConfidence.LOW
+
+                fallback_intent = ResolvedIntent(
+                    category=category,
+                    intent=intent_name,
+                    confidence=best_match.similarity,
+                    confidence_tier=tier,
+                    evidence=[f"Best match (fallback): {best_match.matched_example[:50]}..."],
+                )
+                return ReasoningResult(
+                    request_id=request.request_id,
+                    resolved_intents=[fallback_intent],
+                    is_compound=compound_result.is_compound,
+                    entities=extraction_result.entities,
+                    constraints=[],
+                    confidence_summary=best_match.similarity,
+                    requires_human=True,
+                    human_handoff_reason="LLM reasoning not available - low confidence match",
+                    reasoning_trace=reasoning_trace,
+                    processing_time_ms=processing_time,
+                    path_taken="fast_path_fallback",
+                )
+            else:
+                return ReasoningResult(
+                    request_id=request.request_id,
+                    resolved_intents=[],
+                    is_compound=False,
+                    entities=extraction_result.entities,
+                    constraints=[],
+                    confidence_summary=0.0,
+                    requires_human=True,
+                    human_handoff_reason="No matching intent found and LLM not available",
+                    reasoning_trace=reasoning_trace,
+                    processing_time_ms=processing_time,
+                    path_taken="no_match",
+                )
+
         reasoning_trace.append("Step 5: LLM decomposition")
 
         decomposition = await self.components.decomposer.decompose(
