@@ -6,7 +6,7 @@ A reasoning engine for eCommerce intent classification and resolution. This is n
 
 - **8 core order lifecycle intents**
 - **Chat channel only**
-- **Shopify integration (read-only)**
+- **Platform integrations**: Shopify, Adobe Commerce (read-only)
 - **Fast path matching** (embedding similarity)
 - **LLM reasoning** for compound intents
 
@@ -168,6 +168,85 @@ just lint           # Check for issues
 just lint-fix       # Auto-fix issues
 just fmt            # Format code
 just check          # Run all checks
+```
+
+## Platform Integrations
+
+### Shopify
+
+```python
+from intent_engine.integrations import ShopifyConnector
+
+connector = ShopifyConnector(
+    store_domain="your-store.myshopify.com",
+    access_token="your-access-token",
+)
+order = await connector.get_order_by_number("#1234")
+```
+
+### Adobe Commerce
+
+Supports both deployment models:
+- **PaaS** (self-hosted): Uses integration access token
+- **SaaS** (Adobe Commerce Cloud): Uses Adobe IMS OAuth 2.0
+
+```python
+from intent_engine.integrations import (
+    AdobeCommerceConnector,
+    IntegrationTokenAuth,  # For PaaS
+    IMSOAuthAuth,          # For SaaS
+)
+
+# PaaS (self-hosted)
+connector = AdobeCommerceConnector(
+    base_url="https://your-store.com",
+    auth_strategy=IntegrationTokenAuth(access_token="your-token"),
+    store_code="default",
+)
+
+# SaaS (Adobe Commerce Cloud)
+connector = AdobeCommerceConnector(
+    base_url="https://your-store.com",
+    auth_strategy=IMSOAuthAuth(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+        org_id="your-org-id",
+    ),
+)
+
+order = await connector.get_order_by_number("000000001")
+```
+
+#### Webhook Support
+
+Adobe Commerce webhooks are received at `/webhooks/adobe-commerce` with HMAC-SHA256 signature verification.
+
+Supported events:
+- `observer.sales_order_save_after` - Order created/updated
+- `observer.sales_order_shipment_save_after` - Shipment created
+- `plugin.magento.sales.api.order_management.cancel` - Order cancelled
+- `observer.sales_order_creditmemo_save_after` - Refund created
+
+### Environment Variables
+
+```bash
+# Shopify
+SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
+SHOPIFY_ACCESS_TOKEN=your-access-token
+
+# Adobe Commerce - PaaS
+ADOBE_COMMERCE_BASE_URL=https://your-store.com
+ADOBE_COMMERCE_ACCESS_TOKEN=your-integration-token
+ADOBE_COMMERCE_STORE_CODE=default
+
+# Adobe Commerce - SaaS
+ADOBE_COMMERCE_IMS_CLIENT_ID=your-client-id
+ADOBE_COMMERCE_IMS_CLIENT_SECRET=your-client-secret
+ADOBE_COMMERCE_IMS_ORG_ID=your-org-id
+
+# Adobe Commerce Webhooks
+ADOBE_COMMERCE_WEBHOOK_SECRET=your-webhook-secret
+ADOBE_COMMERCE_WEBHOOK_ENABLED=true
 ```
 
 ## Architecture
