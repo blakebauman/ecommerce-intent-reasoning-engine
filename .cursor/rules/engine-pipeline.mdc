@@ -1,0 +1,17 @@
+---
+description: Intent engine pipeline (stages, fast path vs reasoning, components)
+globs: src/intent_engine/engine.py,src/intent_engine/reasoners/**/*.py,src/intent_engine/matchers/**/*.py,src/intent_engine/extractors/**/*.py
+alwaysApply: false
+---
+
+# Engine Pipeline
+
+**Flow**: Request → Entity extraction → Sentiment → Embedding → Context enrichment → Similarity matching → Compound detection → Policy → [Fast path | LLM reasoning] → Result.
+
+- **Fast path**: Similarity ≥ `fast_path_threshold` (default 0.85), no compound signals. Resolve from embedding match; no LLM.
+- **Reasoning path**: Compound/ambiguous cases use LLM via `IntentDecomposer` (pydantic-ai). Requires `ANTHROPIC_API_KEY`; if missing, engine runs fast-path only and logs a warning.
+- **Components**: `IntentEngine` builds or receives `EngineComponents` (entity_extractor, embedding_extractor, vector_store, intent_matcher, compound_detector, decomposer, sentiment_analyzer, context_enricher, policy_engine, conflict_resolver). Optional components (e.g. sentiment, decomposer) may be `None`; guard before use.
+- **Input/Output**: `IntentRequest` (unified from chat/email/form) → `ReasoningResult` (intents, entities, actions, confidence). Use types from `models/request.py` and `models/response.py`.
+- **Observability**: Pipeline stages and intent resolution are recorded via `observability.metrics` and `observability.tracing`; preserve existing instrumentation when changing stages.
+
+Adding a new pipeline stage: add the component to `EngineComponents`, initialize in `IntentEngine.initialize()` (with optional feature guard), and call it in the correct order in the resolve flow.

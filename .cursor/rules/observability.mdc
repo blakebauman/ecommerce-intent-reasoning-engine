@@ -1,0 +1,12 @@
+---
+description: Tracing, metrics, and structured logging
+globs: src/intent_engine/observability/**/*.py,src/intent_engine/engine.py,src/intent_engine/api/**/*.py
+alwaysApply: false
+---
+
+# Observability
+
+- **Tracing**: Use `pipeline_span(name, ...)` from `observability.tracing` for pipeline stages and other spans. Call `add_span_attribute(key, value)` and `add_span_event(name, attributes)` when adding context. Record exceptions on spans when handling errors.
+- **Metrics**: Use the module-level helpers from `intent_engine.observability.metrics`: `record_intent_resolution`, `record_pipeline_stage`, `record_llm_call`, `record_rate_limit_exceeded`, `record_websocket_*`, `record_batch_job`. Pass the appropriate labels (e.g. tenant_id, stage name); do not create ad-hoc counters.
+- **Logging**: Use standard `logging`; the app configures structured JSON logging (trace_id, span_id, tenant_id). Use `logger = logging.getLogger(__name__)` and log at appropriate levels; avoid printing.
+- **When adding features**: New pipeline stages or API flows should add a `record_pipeline_stage` (or equivalent) and run inside a `pipeline_span` where it makes sense. Preserve existing instrumentation when refactoring.

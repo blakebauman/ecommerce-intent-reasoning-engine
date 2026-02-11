@@ -1,0 +1,15 @@
+---
+description: Domain exceptions and HTTP mapping
+globs: src/intent_engine/**/*.py
+alwaysApply: false
+---
+
+# Exceptions
+
+- **Base**: All domain errors inherit from `IntentEngineError` in `intent_engine.exceptions`. It has `message`, `status_code`, and `detail`; the API handler maps these to HTTP responses.
+- **Use specific subclasses**:
+  - `IntentValidationError` — invalid input (400)
+  - `ResourceNotFoundError` — resource missing (404)
+  - `EngineNotReadyError` — engine/dependency not initialized (503)
+- **Do not**: Raise generic `Exception` or `HTTPException` for domain failures. Use `IntentEngineError` (or a subclass) so the global handler can return consistent JSON with the right status code.
+- **New domain errors**: Subclass `IntentEngineError`, call `super().__init__(message, status_code=<code>, detail=detail_or_message)`, and add to the exception handler in the API layer if needed.

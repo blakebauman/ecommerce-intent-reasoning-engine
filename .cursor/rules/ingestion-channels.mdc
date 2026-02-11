@@ -1,0 +1,13 @@
+---
+description: Channel adapters (chat, email, form) and IntentRequest normalization
+globs: src/intent_engine/ingestion/**/*.py
+alwaysApply: false
+---
+
+# Ingestion and Channel Adapters
+
+- **Interface**: All channel adapters implement `ChannelAdapter` in `ingestion/base.py`: `channel_name`, `normalize(raw_input) -> IntentRequest`, and `validate(raw_input) -> bool`. Output is always `IntentRequest`; do not return channel-specific shapes from the adapter.
+- **Existing adapters**: `ChatAdapter`, `EmailAdapter`, `FormAdapter` in `ingestion/`. Each defines the expected `raw_input` shape, validates required fields, and maps to `IntentRequest` (request_id, tenant_id, channel, raw_text, raw_metadata, attachments, etc.). Use `InputChannel` enum for `channel`.
+- **Validation**: Validate before normalizing; return False or raise for invalid input. Use `validate()` for structure checks; normalization can assume valid input or handle expected variants.
+- **Helpers**: Base class provides `extract_order_ids(text)`; subclasses can override for channel-specific patterns. Reuse common logic (e.g. timestamp parsing) in shared helpers if needed.
+- **New channels**: Add a new adapter class implementing `ChannelAdapter`, put it in `ingestion/<channel>.py`, and register or wire it where ingestion is invoked (e.g. webhooks, API). Document the expected `raw_input` shape in the adapter docstring (see `ChatAdapter` for the pattern).

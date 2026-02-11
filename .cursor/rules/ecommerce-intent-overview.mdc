@@ -1,0 +1,39 @@
+---
+description: Project context, architecture, and commands for eCommerce Intent Reasoning Engine
+alwaysApply: true
+---
+
+# eCommerce Intent Reasoning Engine
+
+Multi-layer NLP system that classifies customer intents and generates action plans for post-purchase customer service. Not a simple classifier: decomposes compound intents, resolves conflicts, outputs structured actions.
+
+- **Two-path architecture**: Fast path (embedding similarity, ~50% of requests) and reasoning path (LLM decomposition for complex cases).
+- **62 intents** across 10 categories (ORDER_STATUS, RETURN_EXCHANGE, COMPLAINT, etc.).
+- **Platforms**: Shopify, Adobe Commerce, WooCommerce, BigCommerce. Sentiment-aware routing with sarcasm detection.
+
+## Commands
+
+- `just setup` — venv, deps, spaCy model
+- `just infra` — postgres + redis (Docker)
+- `just seed` — seed intent catalog
+- `just dev` — API on port 8000 with hot reload
+- `just test` / `just test-unit` / `just test-int` / `just test-cov`
+- `just check` / `just lint-fix` / `just fmt` — lint, typecheck, format (ruff)
+- `just eval` / `just eval-save` — golden eval set
+- `just resolve "Where is my order?"` — test resolution
+- `just mcp` / `just a2a-test` — multi-agent
+
+## Python
+
+Requires **Python 3.12–3.13**. spaCy not compatible with 3.14; use `just test-docker` if on 3.14.
+
+## Core layout
+
+- `src/intent_engine/engine.py` — main orchestrator
+- `extractors/` — entity (spaCy), sentiment, embeddings (sentence-transformers)
+- `matchers/` — similarity, compound detection
+- `reasoners/` — LLM decomposer, context enricher, policy engine
+- `storage/` — pgvector, intent catalog
+- `integrations/` — platform connectors
+- `agents/` — CustomerServiceAgent orchestration
+- Config: `config.py` (pydantic-settings). Required: `DATABASE_URL`, `REDIS_URL`. Optional: `ANTHROPIC_API_KEY`, platform keys, `ENABLE_TRACING`, `ENABLE_METRICS`.

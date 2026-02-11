@@ -1,0 +1,13 @@
+---
+description: MCP server and A2A protocol (tools, agent card, task handler)
+globs: src/intent_engine/mcp/**/*.py,src/intent_engine/a2a/**/*.py
+alwaysApply: false
+---
+
+# MCP and A2A
+
+- **MCP server**: `mcp/server.py` exposes intent resolution as MCP tools (e.g. `resolve_intent`, `classify_intent_fast`) for remote agents. Uses SSE transport with Starlette. Engine is a module-level singleton initialized on first use (`get_engine()`); tools build `IntentRequest` from tool args (e.g. `raw_text`, `order_ids`, `previous_intents`) and call the engine, then return results in the format expected by MCP.
+- **Tool schema**: Define each tool with `Tool(name=..., description=..., inputSchema=...)`. Keep input schema in sync with `IntentRequest` fields that the tool passes through; document optional fields (e.g. `customer_tier`, `order_ids`).
+- **A2A agent card**: `a2a/agent_card.py` defines `AgentCard` with `name`, `description`, `version`, `capabilities`, and `actions` (each with `name`, `description`, `input_schema`, `output_schema`). Served at `/.well-known/agent.json` or equivalent for discovery. Use `get_agent_card(base_url)` to build it.
+- **A2A task handler**: `a2a/handler.py` has `A2ATaskHandler(engine)` for task submission and execution. Tasks are `A2ATask` (action, input, status, result). Map A2A actions to engine or agent operations; run with the same `IntentEngine` instance as the main API (or a shared factory). Support async mode (return task ID for polling) and sync mode (return result when done).
+- **Adding MCP tools or A2A actions**: Add the tool/action schema, implement the handler that builds `IntentRequest` or calls the right service, and update the agent card so discovery reflects new capabilities.

@@ -1,0 +1,13 @@
+---
+description: FastAPI routes, auth, and app state (engine, dependencies)
+globs: src/intent_engine/api/**/*.py
+alwaysApply: false
+---
+
+# API and Routes
+
+- **Engine access**: Get `IntentEngine` from `request.app.state.engine`. Use a dependency (e.g. `get_engine(request: Request)`) that raises `EngineNotReadyError` if not set. Do not create engine instances in route handlers.
+- **Auth**: Protect routes with `Depends(verify_api_key)` from `api/middleware.py`. API key is Bearer token in `Authorization` header; validation uses `Settings.api_key`.
+- **Request/response**: Use Pydantic models for request bodies and responses. Canonical domain types: `IntentRequest`, `ReasoningResult` from `models/`. API-specific DTOs (e.g. `ResolveRequest`, `HealthResponse`) can live in the route module or `batch_models.py` for batch.
+- **Errors**: Raise domain exceptions from `intent_engine.exceptions` (e.g. `IntentValidationError`, `ResourceNotFoundError`, `EngineNotReadyError`). The global exception handler maps them to HTTP status and JSON; do not raise raw `HTTPException` for domain failures.
+- **Routers**: Mount routers on the app in `server.py`. Use `APIRouter()` and prefix/tags as needed. Health and well-known paths may be excluded from tenant/auth via middleware config.

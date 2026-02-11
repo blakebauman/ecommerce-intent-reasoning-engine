@@ -1,0 +1,13 @@
+---
+description: Batch job queue, worker, and API (Redis, webhooks, tenant context)
+globs: src/intent_engine/batch/**/*.py,src/intent_engine/api/batch*.py
+alwaysApply: false
+---
+
+# Batch Queue and Worker
+
+- **Models**: `BatchJob` and `BatchJobItem` in `batch/queue.py`; status via `JobStatus`, priority via `JobPriority`. Job has `tenant_id`, `job_type`, `items`, `webhook_url`/`webhook_secret`, and progress fields. API request/response DTOs in `api/batch_models.py` (e.g. `CreateBatchJobRequest`, `BatchJobResponse`).
+- **Queue**: `BatchQueue` (Redis-backed) enqueues jobs, updates status, and provides poll/claim for workers. Use the queue instance from app state (e.g. `get_batch_queue()` in server); batch API uses `get_queue()` dependency which may use an override in tests.
+- **Worker**: `BatchWorker` takes a `BatchQueue`, a `process_item(item_payload, tenant_id)` callable, and optional `tenant_lookup`. Run items inside `tenant_context(tenant_id)` so tenancy is set for each item. Call `record_batch_job` (metrics) with status and tenant. Support webhook callbacks and graceful shutdown.
+- **API**: Batch routes under `/v1/batch`; tenant from `get_current_tenant()` (or override in tests). Create job → enqueue; status/results endpoints read from queue. Return 503 if queue is not available (e.g. not set in lifespan).
+- **Adding job types**: Define the item payload shape and implement the `process_item` logic (e.g. build `IntentRequest`, call engine, return result). Ensure tenant_id is passed and metrics are recorded.

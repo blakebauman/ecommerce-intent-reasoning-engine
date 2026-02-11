@@ -1,0 +1,12 @@
+---
+description: Multi-tenant context, middleware, and rate limiting
+globs: src/intent_engine/tenancy/**/*.py,src/intent_engine/api/**/*.py
+alwaysApply: false
+---
+
+# Tenancy
+
+- **Tenant context**: Tenant is set by `TenantMiddleware` from API key (Bearer or query). Use `get_current_tenant_id()` from `tenancy.context` when you need the current tenant inside a request. Context is request-scoped; do not assume tenant across async boundaries without passing it explicitly.
+- **Middleware**: `TenantMiddleware` in `tenancy/middleware.py` does API key → tenant lookup, sets context, applies rate limiting, and adds tenant headers. Configure `exclude_paths` for health/docs/well-known. Use `dev_mode` + `dev_tenant` for local dev without real API keys.
+- **Rate limiting**: `RateLimiter` (Redis-backed) is optional; can be passed into middleware or provided via `rate_limiter_getter` (e.g. from lifespan). On limit exceeded, raise or handle `RateLimitExceeded`; metrics: `record_rate_limit_exceeded(tenant_id)`.
+- **Request models**: Include `tenant_id` on API request bodies (e.g. `ResolveRequest`, batch jobs) and pass it through to the engine and observability (traces, logs, metrics).

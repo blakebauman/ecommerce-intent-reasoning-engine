@@ -1,0 +1,13 @@
+---
+description: Request/response and domain models (Pydantic, canonical types)
+globs: src/intent_engine/models/**/*.py
+alwaysApply: false
+---
+
+# Models (Pydantic)
+
+- **Canonical input**: `IntentRequest` in `models/request.py` is the single unified input from all channels. It has `request_id`, `tenant_id`, `channel`, `raw_text`, `raw_metadata`, `attachments`, and optional conversation fields. API and ingestion adapters produce this; the engine consumes it.
+- **Canonical output**: `ReasoningResult` in `models/response.py` holds the engine result: `resolved_intents`, `is_compound`, `entities`, `constraints`, plus optional `sentiment`, `policy`, `context`, `customer_response`. Use it (or its nested types) for API responses and downstream consumers.
+- **Supporting types**: Keep request/response-related types in `models/`: `ResolvedIntent`, `ExtractedEntity`, `MatchResult`, `SentimentInfo`, `PolicyInfo`, `ContextInfo`, `Constraint`, etc. Entity and intent definitions live in `models/entity.py` and `models/intent.py`.
+- **Pydantic usage**: Use `BaseModel` with `Field(..., description="...")` for validation and docs. Use `default_factory=list`/`dict` for mutable defaults. Use `model_config` and `json_schema_extra` for examples when it helps API docs.
+- **API DTOs**: Route-specific request/response bodies (e.g. `ResolveRequest`, `CreateBatchJobRequest`) can live in the route module or `api/batch_models.py`; they should map to or from `IntentRequest`/`ReasoningResult` at the boundary, not replace them as the core domain types.

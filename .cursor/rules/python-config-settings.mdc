@@ -1,0 +1,23 @@
+---
+description: Configuration and settings patterns (pydantic-settings, env)
+globs: src/intent_engine/config.py,src/intent_engine/**/*.py
+alwaysApply: false
+---
+
+# Config and Settings
+
+- **Single source of config**: `src/intent_engine/config.py`. All settings via pydantic-settings `Settings`; load from env or `.env`.
+- **Access**: Use `get_settings()` from `intent_engine.config` (cached via `@lru_cache`). Do not instantiate `Settings()` directly in production code; inject or use `get_settings()`.
+- **New settings**: Add the field to `Settings` in `config.py` with `Field(..., description="...")` and document in `.env.example`. Use `default=""` or a safe default for optional/secret values.
+- **Typing**: Type hint `Settings` when accepting or storing config (e.g. `settings: Settings`, `self.settings = settings or get_settings()`).
+
+```python
+# Good: use get_settings for runtime config
+from intent_engine.config import get_settings, Settings
+settings = get_settings()
+url = settings.database_url
+
+# Good: inject for tests
+def __init__(self, settings: Settings | None = None):
+    self.settings = settings or get_settings()
+```

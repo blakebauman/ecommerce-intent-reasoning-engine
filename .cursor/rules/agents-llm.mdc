@@ -1,0 +1,13 @@
+---
+description: Orchestration agent, LLM usage, and response generation (pydantic-ai)
+globs: src/intent_engine/agents/**/*.py,src/intent_engine/llm/**/*.py
+alwaysApply: false
+---
+
+# Agents and LLM
+
+- **Orchestrator**: `CustomerServiceAgent` in `agents/orchestrator.py` coordinates intent (via `IntentEngine`), platform data (via `PlatformConnector`), and response generation. It takes `Settings` and a connector; use `IntentRequest` and `ReasoningResult` for the flow. Intent-to-action mapping is in `INTENT_TO_ACTION`; extend it when adding new intents that imply actions.
+- **Response generation**: `ResponseGenerator` (and optional `LLMClient`) in `agents/response_generator.py` produce customer-facing text. Can use pydantic-ai `ModelSettings` and templates; keep templates and prompt logic in this layer, not in the engine.
+- **LLM client**: Shared LLM access in `llm/client.py`; reasoning-path decomposition uses `IntentDecomposer` in `reasoners/decomposer.py` (pydantic-ai). For agent-specific LLM calls (e.g. response generation), use the agent’s LLM client or a shared client configured from `Settings`; do not duplicate API key handling.
+- **Platform connector**: The agent receives a `PlatformConnector` (Shopify, Adobe Commerce, etc.) to fetch orders and tracking. Use unified types from `integrations/base.py` (`OrderInfo`, etc.); do not depend on platform-specific DTOs in the agent.
+- **Adding agent behavior**: New intents or actions should be reflected in `INTENT_TO_ACTION` and in response/template logic. Keep orchestration in `CustomerServiceAgent` and delegate to engine, connector, and response generator.

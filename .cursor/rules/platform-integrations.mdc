@@ -1,0 +1,15 @@
+---
+description: Platform connector pattern (base class, OrderInfo, mapping)
+globs: src/intent_engine/integrations/**/*.py
+alwaysApply: false
+---
+
+# Platform Integrations
+
+- **Base**: All connectors inherit from `PlatformConnector` in `integrations/base.py`. Do not bypass the base interface.
+- **Unified types**: Use dataclasses from `base.py`: `OrderInfo`, `OrderStatus`, `FulfillmentStatus`, `LineItem`, `ShippingAddress`, `TrackingInfo`. Connectors return these; do not expose platform-specific DTOs from the connector API.
+- **Required methods**: Implement `platform_name`, `get_order`, `get_order_by_number`, `get_customer_orders`, `get_tracking`. Optional override: `health_check`.
+- **Per-platform layout**: Each platform has a package under `integrations/<platform>/`: `connector.py` (implements `PlatformConnector`), `mapping.py` (platform → `OrderInfo` / shared types), `webhooks.py` if needed. Adobe Commerce also has `auth.py` (PaaS vs SaaS).
+- **Config**: Platform credentials come from `Settings` in `config.py` (e.g. `shopify_*`, `woocommerce_*`). Connectors receive settings or use `get_settings()`.
+
+When adding a new platform: add env vars and `Settings` fields, then create `integrations/<name>/` with connector, mapping, and optional webhooks; keep business logic in the connector and mapping in `mapping.py`.

@@ -1,0 +1,16 @@
+---
+description: Testing conventions (pytest, asyncio, fixtures, just)
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Testing
+
+- **Runner**: pytest with pytest-asyncio; `asyncio_mode = "auto"` (in pyproject or conftest).
+- **Imports**: Tests add `src` to path (see `tests/conftest.py`). Use `from intent_engine.*` imports.
+- **Env**: Set test env in conftest (e.g. `API_KEY`, `DATABASE_URL`). Integration tests expect infra: `just infra` (postgres, redis).
+- **Fixtures**: Shared fixtures in `tests/conftest.py` (e.g. `sample_intent_request`, `sample_chat_input`, `project_root`). Prefer fixtures over hand-rolled request/context objects.
+- **Layout**: `tests/unit/` for unit tests, `tests/integration/` for API/infra tests. Name files `test_<module>.py`.
+- **Commands**: `just test`, `just test-unit`, `just test-int`, `just test-cov`. Single file: `pytest tests/unit/test_foo.py -v`.
+
+When adding tests for new modules, mirror `src/intent_engine` structure (e.g. `extractors/entity_extractor.py` → `tests/unit/test_entity_extractor.py`) and reuse conftest fixtures where applicable.
