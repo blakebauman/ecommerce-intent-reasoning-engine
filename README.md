@@ -6,7 +6,7 @@ A reasoning engine for eCommerce intent classification and resolution. This is n
 
 - **62 intents** across 10 categories
 - **Multi-channel support**: Chat, Email, Form
-- **Platform integrations**: Shopify, Adobe Commerce (read-only)
+- **Platform integrations**: Shopify, Adobe Commerce, WooCommerce, BigCommerce (order connectors)
 - **Fast path matching** (embedding similarity) — handles ~50% of requests
 - **LLM reasoning** for compound/ambiguous intents
 - **Sentiment analysis** with sarcasm detection
@@ -51,6 +51,7 @@ just seed        # Seed intent catalog (1010 examples)
 
 # Or for local development:
 just setup       # Create venv and install dependencies
+# Alternatively: uv sync --extra dev && uv run python -m spacy download en_core_web_sm
 just infra       # Start postgres and redis only
 just seed        # Seed intent catalog
 just dev         # Run API locally with hot reload
@@ -174,25 +175,29 @@ Pre-purchase   Post-purchase
 
 ### Programmatic Usage
 
+The `/v1/agent/chat` endpoint uses `LifecycleRouter` to route messages. For direct agent access:
+
 ```python
-from intent_engine.agents import CustomerServiceAgent, CustomerMessage
+from intent_engine.agents import CustomerServiceAgent, CustomerMessage, LifecycleRouter
+from intent_engine.agents.catalog_agent import get_catalog_provider_from_settings
 from intent_engine.config import get_settings
 
-agent = CustomerServiceAgent(settings=get_settings())
+# Full lifecycle (pre-purchase + post-purchase) via router
+settings = get_settings()
+agent = CustomerServiceAgent(settings=settings)
 await agent.initialize()
-
-response = await agent.process_message(CustomerMessage(
+router = LifecycleRouter(
+    intent_engine=agent.intent_engine,
+    customer_service_agent=agent,
+    catalog_provider=get_catalog_provider_from_settings(),
+)
+response = await router.process_message(CustomerMessage(
     message_id="msg-123",
     customer_email="john@example.com",
     text="Where is my order #12345?",
     platform="shopify",
 ))
-
 print(response.response_text)
-# "Your order #12345 is currently in transit..."
-
-print(response.actions[0].action_type)
-# ActionType.PROVIDE_ORDER_STATUS
 ```
 
 ### Catalog and pre-purchase
@@ -251,6 +256,9 @@ This project uses [just](https://github.com/casey/just) as a command runner. Run
 | `just resolve "text"` | Test intent resolution |
 | `just intents` | List available intents |
 | `just catalog` | Get catalog stats |
+| **Multi-agent** | |
+| `just mcp` | Run MCP server for agent access |
+| `just a2a-test` | Test A2A agent card and task submission |
 | **Cleanup** | |
 | `just clean` | Remove Docker volumes and containers |
 | `just clean-cache` | Remove Python cache files |
@@ -373,6 +381,8 @@ ADOBE_COMMERCE_WEBHOOK_ENABLED=true
 
 ## Architecture
 
+The intent engine pipeline classifies and decomposes customer messages. The orchestration layer (chat endpoint) routes responses to pre-purchase or post-purchase agents based on intent.
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   INPUT (Chat)                       │
@@ -388,19 +398,25 @@ ADOBE_COMMERCE_WEBHOOK_ENABLED=true
 ┌──────────────────────────────────────────────────────┐
 │            MATCHING LAYER (Fast Path)                 │
 │  Embedding similarity │ Threshold: ≥0.85             │
-│  Handles ~70-80% of requests                          │
+│  Handles ~50% of requests                             │
 └──────────────────────────┬───────────────────────────┘
                            │ (low confidence or compound)
                            ▼
 ┌──────────────────────────────────────────────────────┐
 │            REASONING LAYER (Deep Path)                │
-│  LLM-powered decomposition (Claude)                   │
+│  LLM-powered decomposition (Claude)                  │
 └──────────────────────────┬───────────────────────────┘
                            │
                            ▼
 ┌──────────────────────────────────────────────────────┐
 │              RESOLUTION LAYER                         │
 │  Intent → Action mapping │ Response generation       │
+└──────────────────────────┬──────────────────────────┘
+                           │
+                           ▼ (feeds orchestration agent)
+┌──────────────────────────────────────────────────────┐
+│           ORCHESTRATION (Lifecycle Router)            │
+│  Pre-purchase: Catalog agent │ Post-purchase: Orders │
 └──────────────────────────────────────────────────────┘
 ```
 
