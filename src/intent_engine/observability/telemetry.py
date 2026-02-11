@@ -145,6 +145,7 @@ def _apply_instrumentation() -> None:
     # FastAPI instrumentation
     try:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
         FastAPIInstrumentor().instrument()
         logger.debug("FastAPI instrumentation applied")
     except ImportError:
@@ -155,6 +156,7 @@ def _apply_instrumentation() -> None:
     # httpx instrumentation
     try:
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
         HTTPXClientInstrumentor().instrument()
         logger.debug("httpx instrumentation applied")
     except ImportError:
@@ -165,6 +167,7 @@ def _apply_instrumentation() -> None:
     # Redis instrumentation
     try:
         from opentelemetry.instrumentation.redis import RedisInstrumentor
+
         RedisInstrumentor().instrument()
         logger.debug("Redis instrumentation applied")
     except ImportError:
@@ -175,6 +178,7 @@ def _apply_instrumentation() -> None:
     # asyncpg instrumentation
     try:
         from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+
         AsyncPGInstrumentor().instrument()
         logger.debug("asyncpg instrumentation applied")
     except ImportError:

@@ -1,8 +1,7 @@
 """Form channel adapter with field concatenation and metadata extraction."""
 
-import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from intent_engine.ingestion.base import ChannelAdapter
@@ -89,17 +88,36 @@ class FormAdapter(ChannelAdapter):
     }
 
     # Fields that contain the main message content
-    MESSAGE_FIELDS = {"message", "body", "description", "details", "inquiry", "question", "comment", "comments", "feedback"}
+    MESSAGE_FIELDS = {
+        "message",
+        "body",
+        "description",
+        "details",
+        "inquiry",
+        "question",
+        "comment",
+        "comments",
+        "feedback",
+    }
 
     # Fields that provide context/subject
     SUBJECT_FIELDS = {"subject", "topic", "issue", "reason"}
 
     # Fields to exclude from concatenation (metadata only)
     METADATA_ONLY_FIELDS = {
-        "email", "email_address", "customer_email",
-        "phone", "phone_number", "telephone", "mobile",
-        "name", "full_name", "fullname", "customer_name",
-        "customer_id", "session_id",
+        "email",
+        "email_address",
+        "customer_email",
+        "phone",
+        "phone_number",
+        "telephone",
+        "mobile",
+        "name",
+        "full_name",
+        "fullname",
+        "customer_name",
+        "customer_id",
+        "session_id",
     }
 
     @property
@@ -159,7 +177,7 @@ class FormAdapter(ChannelAdapter):
         request_id = raw_input.get("request_id", str(uuid.uuid4()))
 
         # Parse timestamp
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
         if ts := raw_input.get("timestamp"):
             if isinstance(ts, str):
                 try:
@@ -177,9 +195,6 @@ class FormAdapter(ChannelAdapter):
             "original_fields": list(fields.keys()),
             "issue_type": classified.get("issue_type"),
         }
-
-        # Customer info from form
-        customer_email = classified.get("customer_email")
 
         return IntentRequest(
             request_id=request_id,
@@ -293,13 +308,4 @@ class FormAdapter(ChannelAdapter):
         """Extract order IDs from text with additional form-specific patterns."""
         # Use base class patterns
         order_ids = super().extract_order_ids(text)
-
-        # Add form-specific patterns (confirmation codes, etc.)
-        additional_patterns = [
-            r"\b(\d{4,10})\b",  # Plain numbers that could be order IDs
-        ]
-
-        # Only add plain numbers if they look like order IDs (4-10 digits standalone)
-        # This is more aggressive but form contexts are usually more structured
-
         return list(set(order_ids))

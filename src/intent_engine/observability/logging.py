@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from datetime import UTC
 from typing import Any
 
 from intent_engine.observability.tracing import get_current_span_id, get_current_trace_id
@@ -22,11 +23,11 @@ class StructuredLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Format the log record as JSON."""
         import json
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # Build base log entry
         log_entry: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -110,9 +111,9 @@ def configure_logging(
     if json_format:
         handler.setFormatter(StructuredLogFormatter())
     else:
-        handler.setFormatter(logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        ))
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
 
     # Add tenant context filter
     if include_tenant:

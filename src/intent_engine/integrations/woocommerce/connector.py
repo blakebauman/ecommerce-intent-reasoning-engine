@@ -1,12 +1,11 @@
 """WooCommerce REST API connector (read-only) with customer profile support."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 
 from intent_engine.integrations.base import (
-    FulfillmentStatus,
     LineItem,
     OrderInfo,
     OrderStatus,
@@ -251,7 +250,7 @@ class WooCommerceConnector(PlatformConnector):
             # System status endpoint requires authentication
             data = await self._request("GET", "/system_status")
             return data is not None
-        except Exception:
+        except (httpx.HTTPError, OSError):
             return False
 
     async def _parse_order(self, order_data: dict) -> OrderInfo:
@@ -309,9 +308,7 @@ class WooCommerceConnector(PlatformConnector):
         refund_amount = None
         refunds = order_data.get("refunds", [])
         if refunds:
-            refund_amount = sum(
-                abs(float(r.get("total", 0))) for r in refunds
-            )
+            refund_amount = sum(abs(float(r.get("total", 0))) for r in refunds)
 
         # Get customer name from billing
         billing = order_data.get("billing", {})
@@ -334,7 +331,9 @@ class WooCommerceConnector(PlatformConnector):
             customer_email=billing.get("email", ""),
             customer_name=customer_name,
             line_items=line_items,
-            subtotal=float(order_data.get("total", 0)) - float(order_data.get("shipping_total", 0)) - float(order_data.get("total_tax", 0)),
+            subtotal=float(order_data.get("total", 0))
+            - float(order_data.get("shipping_total", 0))
+            - float(order_data.get("total_tax", 0)),
             shipping_cost=float(order_data.get("shipping_total", 0)),
             tax=float(order_data.get("total_tax", 0)),
             total=float(order_data.get("total", 0)),
@@ -345,7 +344,7 @@ class WooCommerceConnector(PlatformConnector):
             updated_at=updated_at,
             shipped_at=completed_at if has_tracking else None,
             delivered_at=completed_at if status == OrderStatus.DELIVERED else None,
-            is_returnable=return_window_ends is not None and return_window_ends > datetime.now(timezone.utc),
+            is_returnable=return_window_ends is not None and return_window_ends > datetime.now(UTC),
             return_window_ends=return_window_ends,
             refund_amount=refund_amount,
             raw_data=order_data,
@@ -360,7 +359,7 @@ class WooCommerceConnector(PlatformConnector):
             dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
             # Ensure timezone-aware (assume UTC if naive)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             return dt
         except ValueError:
             return None
@@ -519,7 +518,7 @@ class WooCommerceConnector(PlatformConnector):
 
     def _build_order_context(self, order_info: OrderInfo) -> OrderContext:
         """Build OrderContext from OrderInfo."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Build product contexts
         items = [

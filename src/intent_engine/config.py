@@ -1,8 +1,9 @@
 """Configuration management using pydantic-settings."""
 
+import json
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -127,11 +128,57 @@ class Settings(BaseSettings):
         description="Enable Adobe Commerce webhook processing",
     )
 
+    # Adobe Commerce Optimizer (Merchandising Services) - catalog for product search/discovery
+    # See https://developer.adobe.com/commerce/services/optimizer/
+    adobe_commerce_optimizer_tenant_id: str = Field(
+        default="",
+        description="Adobe Commerce Optimizer tenant/instance ID (from Cloud Manager)",
+    )
+    adobe_commerce_optimizer_region: str = Field(
+        default="na1",
+        description="Cloud region (e.g. na1)",
+    )
+    adobe_commerce_optimizer_environment: str = Field(
+        default="sandbox",
+        description="Environment: 'sandbox' or '' for production",
+    )
+    adobe_commerce_optimizer_catalog_view_id: str = Field(
+        default="",
+        description="Catalog view ID from Adobe Commerce Optimizer UI (AC-View-ID header)",
+    )
+    adobe_commerce_optimizer_locale: str = Field(
+        default="en_US",
+        description="Catalog source locale (AC-Source-Locale header)",
+    )
+    adobe_commerce_optimizer_price_book_id: str = Field(
+        default="",
+        description="Optional price book ID (AC-Price-Book-ID)",
+    )
+
     # API Settings
     api_key: str = Field(
         default="dev-api-key",
         description="API key for authentication",
     )
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ["*"],
+        description="CORS allowed origins (use ['*'] for allow-all in dev; restrict in production)",
+    )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: object) -> list[str]:
+        """Accept JSON array or comma-separated string for CORS_ORIGINS."""
+        if isinstance(v, list):
+            return [str(x).strip() for x in v]
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return ["*"]
+            if v.startswith("["):
+                return [str(x).strip() for x in json.loads(v)]
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return ["*"]
     api_title: str = Field(
         default="Intent Reasoning Engine",
         description="API title",
@@ -207,6 +254,14 @@ class Settings(BaseSettings):
     tenant_dev_mode: bool = Field(
         default=True,
         description="Enable dev mode (accept any API key)",
+    )
+    tenant_store_backend: str = Field(
+        default="memory",
+        description="Tenant store backend: 'memory' (dev/single-tenant) or 'db' (production multi-tenant)",
+    )
+    admin_api_key: str = Field(
+        default="",
+        description="Optional API key for admin endpoints (e.g. tenant management). When set, /v1/admin/* require this key.",
     )
 
     # Batch Processing

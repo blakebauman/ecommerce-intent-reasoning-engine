@@ -1,17 +1,18 @@
 """Tests for policy engine."""
 
-import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-from intent_engine.reasoners.policy_engine import PolicyEngine, PolicyDecision
+import pytest
+
 from intent_engine.models.context import (
     CustomerProfile,
     CustomerTier,
+    EnrichedContext,
     OrderContext,
     ProductContext,
-    EnrichedContext,
     ReturnEligibility,
 )
+from intent_engine.reasoners.policy_engine import PolicyDecision, PolicyEngine
 
 
 @pytest.fixture
@@ -104,7 +105,7 @@ def recent_order() -> OrderContext:
         status="delivered",
         fulfillment_status="fulfilled",
         customer_email="customer@example.com",
-        created_at=datetime.utcnow() - timedelta(days=10),
+        created_at=datetime.now(timezone.utc) - timedelta(days=10),
         items=[
             ProductContext(
                 product_id="PROD-001",
@@ -130,7 +131,7 @@ def expired_order() -> OrderContext:
         status="delivered",
         fulfillment_status="fulfilled",
         customer_email="customer@example.com",
-        created_at=datetime.utcnow() - timedelta(days=60),
+        created_at=datetime.now(timezone.utc) - timedelta(days=60),
         items=[ProductContext(product_id="PROD-002", sku="SKU-002", name="Pants", price=150.00)],
         is_within_return_window=False,
         return_eligibility=ReturnEligibility.EXPIRED,
@@ -442,9 +443,7 @@ class TestEscalation:
 
         assert decision.escalation_required is False
 
-    def test_check_escalation_keywords(
-        self, engine: PolicyEngine, default_policy: dict
-    ) -> None:
+    def test_check_escalation_keywords(self, engine: PolicyEngine, default_policy: dict) -> None:
         """Test keyword-based escalation checking."""
         text = "I will sue you! My lawyer will be in touch!"
         keywords = engine.check_escalation_keywords(text, default_policy)
@@ -456,9 +455,7 @@ class TestEscalation:
 class TestPriorityRouting:
     """Tests for priority routing."""
 
-    def test_vip_priority(
-        self, engine: PolicyEngine, vip_customer: CustomerProfile
-    ) -> None:
+    def test_vip_priority(self, engine: PolicyEngine, vip_customer: CustomerProfile) -> None:
         """Test VIP customers get priority."""
         context = EnrichedContext(customer=vip_customer)
         decision = engine.evaluate(context, "ORDER_STATUS.WISMO")
@@ -474,9 +471,7 @@ class TestPriorityRouting:
     ) -> None:
         """Test high frustration gets priority."""
         context = EnrichedContext(customer=standard_customer, order=recent_order)
-        decision = engine.evaluate(
-            context, "ORDER_STATUS.WISMO", frustration_score=0.8
-        )
+        decision = engine.evaluate(context, "ORDER_STATUS.WISMO", frustration_score=0.8)
 
         assert decision.priority_flag is True
         assert any("frustration" in r.lower() for r in decision.priority_reasons)
@@ -530,9 +525,7 @@ class TestRecommendations:
         assert decision.recommended_action == "auto_approve_return"
         assert "return label" in decision.suggested_resolution.lower()
 
-    def test_recommend_escalation(
-        self, engine: PolicyEngine, recent_order: OrderContext
-    ) -> None:
+    def test_recommend_escalation(self, engine: PolicyEngine, recent_order: OrderContext) -> None:
         """Test escalation recommendation."""
         customer = CustomerProfile(
             customer_id="cust-esc",
@@ -574,9 +567,7 @@ class TestReturnWindowValidation:
         assert reason is None
         assert days is not None and days > 0
 
-    def test_validate_vip_extended_window(
-        self, engine: PolicyEngine
-    ) -> None:
+    def test_validate_vip_extended_window(self, engine: PolicyEngine) -> None:
         """Test VIP extended 60-day window."""
         order = OrderContext(
             order_id="ORD-VIP-WIN",
@@ -586,18 +577,14 @@ class TestReturnWindowValidation:
             status="delivered",
             fulfillment_status="fulfilled",
             customer_email="customer@example.com",
-            created_at=datetime.utcnow() - timedelta(days=45),  # 45 days old
+            created_at=datetime.now(timezone.utc) - timedelta(days=45),  # 45 days old
         )
 
         # Standard customer would be outside window (45 > 30)
-        std_eligible, std_reason, _ = engine.validate_return_window(
-            order, CustomerTier.STANDARD
-        )
+        std_eligible, std_reason, _ = engine.validate_return_window(order, CustomerTier.STANDARD)
 
         # VIP customer should be within window (45 < 60)
-        vip_eligible, vip_reason, _ = engine.validate_return_window(
-            order, CustomerTier.VIP
-        )
+        vip_eligible, vip_reason, _ = engine.validate_return_window(order, CustomerTier.VIP)
 
         assert std_eligible is False
         assert vip_eligible is True
@@ -612,12 +599,10 @@ class TestReturnWindowValidation:
             status="delivered",
             fulfillment_status="fulfilled",
             customer_email="customer@example.com",
-            created_at=datetime.utcnow() - timedelta(days=100),
+            created_at=datetime.now(timezone.utc) - timedelta(days=100),
         )
 
-        is_eligible, reason, days = engine.validate_return_window(
-            order, CustomerTier.STANDARD
-        )
+        is_eligible, reason, days = engine.validate_return_window(order, CustomerTier.STANDARD)
 
         assert is_eligible is False
         assert "expired" in reason.lower()
@@ -692,17 +677,15 @@ class TestTierAwareFrustrationThresholds:
         context = EnrichedContext(customer=vip_customer, order=recent_order)
 
         # 0.75 should NOT escalate for VIP (threshold is 0.8)
-        decision = engine.evaluate(
-            context, "COMPLAINT.GENERAL", frustration_score=0.75
-        )
+        decision = engine.evaluate(context, "COMPLAINT.GENERAL", frustration_score=0.75)
         frustration_reasons = [r for r in decision.escalation_reasons if "frustration" in r.lower()]
         assert len(frustration_reasons) == 0, "VIP should not escalate at 0.75 frustration"
 
         # 0.85 SHOULD escalate for VIP
-        decision_high = engine.evaluate(
-            context, "COMPLAINT.GENERAL", frustration_score=0.85
-        )
-        frustration_reasons_high = [r for r in decision_high.escalation_reasons if "frustration" in r.lower()]
+        decision_high = engine.evaluate(context, "COMPLAINT.GENERAL", frustration_score=0.85)
+        frustration_reasons_high = [
+            r for r in decision_high.escalation_reasons if "frustration" in r.lower()
+        ]
         assert len(frustration_reasons_high) > 0, "VIP should escalate at 0.85 frustration"
 
     def test_at_risk_lower_frustration_threshold(
@@ -715,9 +698,7 @@ class TestTierAwareFrustrationThresholds:
         context = EnrichedContext(customer=at_risk_customer, order=recent_order)
 
         # 0.55 SHOULD escalate for AT_RISK (threshold is 0.5)
-        decision = engine.evaluate(
-            context, "COMPLAINT.GENERAL", frustration_score=0.55
-        )
+        decision = engine.evaluate(context, "COMPLAINT.GENERAL", frustration_score=0.55)
         frustration_reasons = [r for r in decision.escalation_reasons if "frustration" in r.lower()]
         assert len(frustration_reasons) > 0, "AT_RISK should escalate at 0.55 frustration"
 
@@ -731,17 +712,15 @@ class TestTierAwareFrustrationThresholds:
         context = EnrichedContext(customer=standard_customer, order=recent_order)
 
         # 0.65 should NOT escalate for standard
-        decision = engine.evaluate(
-            context, "COMPLAINT.GENERAL", frustration_score=0.65
-        )
+        decision = engine.evaluate(context, "COMPLAINT.GENERAL", frustration_score=0.65)
         frustration_reasons = [r for r in decision.escalation_reasons if "frustration" in r.lower()]
         assert len(frustration_reasons) == 0, "Standard should not escalate at 0.65 frustration"
 
         # 0.75 SHOULD escalate for standard
-        decision_high = engine.evaluate(
-            context, "COMPLAINT.GENERAL", frustration_score=0.75
-        )
-        frustration_reasons_high = [r for r in decision_high.escalation_reasons if "frustration" in r.lower()]
+        decision_high = engine.evaluate(context, "COMPLAINT.GENERAL", frustration_score=0.75)
+        frustration_reasons_high = [
+            r for r in decision_high.escalation_reasons if "frustration" in r.lower()
+        ]
         assert len(frustration_reasons_high) > 0, "Standard should escalate at 0.75 frustration"
 
     def test_tier_shown_in_escalation_reason(
@@ -752,9 +731,7 @@ class TestTierAwareFrustrationThresholds:
     ) -> None:
         """Test that tier is shown in escalation reason."""
         context = EnrichedContext(customer=vip_customer, order=recent_order)
-        decision = engine.evaluate(
-            context, "COMPLAINT.GENERAL", frustration_score=0.9
-        )
+        decision = engine.evaluate(context, "COMPLAINT.GENERAL", frustration_score=0.9)
 
         # Find the frustration-related escalation reason
         frustration_reasons = [r for r in decision.escalation_reasons if "frustration" in r.lower()]

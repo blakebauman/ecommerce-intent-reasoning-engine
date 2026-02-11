@@ -1,11 +1,12 @@
 """Unit tests for batch processing queue."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 import json
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock
 
-from intent_engine.batch.queue import BatchQueue, BatchJob, BatchJobItem, JobStatus, JobPriority
+import pytest
+
+from intent_engine.batch.queue import BatchJob, BatchQueue, JobPriority, JobStatus
 
 
 class TestBatchJob:
@@ -53,7 +54,7 @@ class TestBatchJob:
         job = BatchJob(
             job_id="test-job",
             tenant_id="tenant-1",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
         duration = job.duration_seconds()
         assert duration is not None

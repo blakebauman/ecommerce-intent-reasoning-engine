@@ -83,12 +83,8 @@ class IntentEngine:
 
         if self._components is None:
             # Create components
-            entity_extractor = EntityExtractor(
-                spacy_model=self.settings.spacy_model
-            )
-            embedding_extractor = EmbeddingExtractor(
-                model_name=self.settings.embedding_model
-            )
+            entity_extractor = EntityExtractor(spacy_model=self.settings.spacy_model)
+            embedding_extractor = EmbeddingExtractor(model_name=self.settings.embedding_model)
             vector_store = VectorStore(self.settings.database_url)
             await vector_store.connect()
 
@@ -106,22 +102,21 @@ class IntentEngine:
             # Decomposer is optional - requires ANTHROPIC_API_KEY
             decomposer: IntentDecomposer | None = None
             try:
-                decomposer = IntentDecomposer(
-                    model_name=self.settings.llm_model
-                )
+                decomposer = IntentDecomposer(model_name=self.settings.llm_model)
             except Exception as e:
-                import logging
-                logging.warning(
-                    f"LLM decomposer not available: {e}. "
-                    "Fast path only - set ANTHROPIC_API_KEY for full functionality."
+                # Covers ValueError, OSError, ImportError, and provider UserError (e.g. missing ANTHROPIC_API_KEY)
+                logger.warning(
+                    "LLM decomposer not available: %s. Fast path only - set ANTHROPIC_API_KEY for full functionality.",
+                    e,
+                    exc_info=True,
                 )
 
             # Phase 2: Sentiment analyzer
             sentiment_analyzer: SentimentAnalyzer | None = None
             try:
                 sentiment_analyzer = get_sentiment_analyzer()
-            except Exception as e:
-                logger.warning(f"Sentiment analyzer not available: {e}")
+            except (ValueError, OSError, ImportError) as e:
+                logger.warning("Sentiment analyzer not available: %s", e, exc_info=True)
 
             # Phase 2: Context enricher (requires platform connector)
             context_enricher: ContextEnricher | None = None
@@ -129,15 +124,15 @@ class IntentEngine:
                 # Context enricher is initialized without connector by default
                 # Connector can be set later via set_platform_connector()
                 context_enricher = ContextEnricher()
-            except Exception as e:
-                logger.warning(f"Context enricher not available: {e}")
+            except (ValueError, OSError, ImportError) as e:
+                logger.warning("Context enricher not available: %s", e, exc_info=True)
 
             # Phase 2: Policy engine
             policy_engine: PolicyEngine | None = None
             try:
                 policy_engine = get_policy_engine()
-            except Exception as e:
-                logger.warning(f"Policy engine not available: {e}")
+            except (ValueError, OSError, ImportError) as e:
+                logger.warning("Policy engine not available: %s", e, exc_info=True)
 
             # Conflict resolver for handling contradictory intents
             conflict_resolver = ConflictResolver()
@@ -220,10 +215,14 @@ class IntentEngine:
         sentiment_info: SentimentInfo | None = None
         if self.components.sentiment_analyzer:
             reasoning_trace.append("Step 2: Analyzing sentiment")
-            with pipeline_span("sentiment_analysis", tenant_id=tenant_id, request_id=request.request_id):
+            with pipeline_span(
+                "sentiment_analysis", tenant_id=tenant_id, request_id=request.request_id
+            ):
                 stage_start = time.perf_counter()
                 sentiment_result = self.components.sentiment_analyzer.analyze(request.raw_text)
-                record_pipeline_stage("sentiment_analysis", time.perf_counter() - stage_start, tenant_id)
+                record_pipeline_stage(
+                    "sentiment_analysis", time.perf_counter() - stage_start, tenant_id
+                )
             sentiment_info = SentimentInfo(
                 sentiment_score=sentiment_result.sentiment_score,
                 urgency_score=sentiment_result.urgency_score,
@@ -247,62 +246,92 @@ class IntentEngine:
 
         # Step 3: Generate embedding
         reasoning_trace.append("Step 3: Generating embedding")
-        with pipeline_span("embedding_generation", tenant_id=tenant_id, request_id=request.request_id):
+        with pipeline_span(
+            "embedding_generation", tenant_id=tenant_id, request_id=request.request_id
+        ):
             stage_start = time.perf_counter()
             embedding = self.components.embedding_extractor.embed(request.raw_text)
             extraction_result.embedding = embedding
-            record_pipeline_stage("embedding_generation", time.perf_counter() - stage_start, tenant_id)
+            record_pipeline_stage(
+                "embedding_generation", time.perf_counter() - stage_start, tenant_id
+            )
 
         # Step 4: Context enrichment (Phase 2)
         enriched_context: EnrichedContext | None = None
         context_info: ContextInfo | None = None
         if self.components.context_enricher:
             reasoning_trace.append("Step 4: Enriching context")
-            with pipeline_span("context_enrichment", tenant_id=tenant_id, request_id=request.request_id):
+            with pipeline_span(
+                "context_enrichment", tenant_id=tenant_id, request_id=request.request_id
+            ):
                 stage_start = time.perf_counter()
                 try:
                     enriched_context = await self.components.context_enricher.enrich(request)
-                    record_pipeline_stage("context_enrichment", time.perf_counter() - stage_start, tenant_id)
+                    record_pipeline_stage(
+                        "context_enrichment", time.perf_counter() - stage_start, tenant_id
+                    )
                     if enriched_context.data_sources:
                         context_info = ContextInfo(
-                            customer_tier=enriched_context.customer.tier.value if enriched_context.customer else None,
-                            customer_lifetime_value=enriched_context.customer.lifetime_value if enriched_context.customer else None,
-                            order_status=enriched_context.order.status if enriched_context.order else None,
-                            order_total=enriched_context.order.total if enriched_context.order else None,
-                            is_within_return_window=enriched_context.order.is_within_return_window if enriched_context.order else None,
+                            customer_tier=enriched_context.customer.tier.value
+                            if enriched_context.customer
+                            else None,
+                            customer_lifetime_value=enriched_context.customer.lifetime_value
+                            if enriched_context.customer
+                            else None,
+                            order_status=enriched_context.order.status
+                            if enriched_context.order
+                            else None,
+                            order_total=enriched_context.order.total
+                            if enriched_context.order
+                            else None,
+                            is_within_return_window=enriched_context.order.is_within_return_window
+                            if enriched_context.order
+                            else None,
                             data_sources=enriched_context.data_sources,
                         )
-                        reasoning_trace.append(f"  Sources: {', '.join(enriched_context.data_sources)}")
+                        reasoning_trace.append(
+                            f"  Sources: {', '.join(enriched_context.data_sources)}"
+                        )
                 except Exception as e:
-                    logger.warning(f"Context enrichment failed: {e}")
+                    logger.warning("Context enrichment failed: %s", e, exc_info=True)
                     reasoning_trace.append(f"  Context enrichment failed: {e}")
         else:
             reasoning_trace.append("Step 4: Context enrichment (skipped - not configured)")
 
         # Step 5: Similarity matching
         reasoning_trace.append("Step 5: Similarity matching")
-        with pipeline_span("similarity_matching", tenant_id=tenant_id, request_id=request.request_id):
+        with pipeline_span(
+            "similarity_matching", tenant_id=tenant_id, request_id=request.request_id
+        ):
             stage_start = time.perf_counter()
             match_result = await self.components.intent_matcher.match(
                 text=request.raw_text,
                 embedding=embedding,
             )
-            record_pipeline_stage("similarity_matching", time.perf_counter() - stage_start, tenant_id)
+            record_pipeline_stage(
+                "similarity_matching", time.perf_counter() - stage_start, tenant_id
+            )
 
         reasoning_trace.append(
             f"  Top match: {match_result.top_matches[0].intent_code if match_result.top_matches else 'None'} "
-            f"({match_result.top_matches[0].similarity:.2f})" if match_result.top_matches else "  No matches"
+            f"({match_result.top_matches[0].similarity:.2f})"
+            if match_result.top_matches
+            else "  No matches"
         )
 
         # Step 6: Check for compound intents
         reasoning_trace.append("Step 6: Checking for compound intents")
-        with pipeline_span("compound_detection", tenant_id=tenant_id, request_id=request.request_id):
+        with pipeline_span(
+            "compound_detection", tenant_id=tenant_id, request_id=request.request_id
+        ):
             stage_start = time.perf_counter()
             compound_result = self.components.compound_detector.detect(
                 text=request.raw_text,
                 top_matches=match_result.top_matches,
             )
-            record_pipeline_stage("compound_detection", time.perf_counter() - stage_start, tenant_id)
+            record_pipeline_stage(
+                "compound_detection", time.perf_counter() - stage_start, tenant_id
+            )
 
         if compound_result.is_compound:
             reasoning_trace.append(f"  Compound signals detected: {len(compound_result.signals)}")
@@ -315,7 +344,9 @@ class IntentEngine:
 
         if self.components.policy_engine and enriched_context and primary_intent_code:
             reasoning_trace.append("Step 7: Evaluating policies")
-            with pipeline_span("policy_evaluation", tenant_id=tenant_id, request_id=request.request_id):
+            with pipeline_span(
+                "policy_evaluation", tenant_id=tenant_id, request_id=request.request_id
+            ):
                 stage_start = time.perf_counter()
                 try:
                     frustration = sentiment_info.frustration_score if sentiment_info else 0.0
@@ -342,9 +373,11 @@ class IntentEngine:
                         )
                     if policy_decision.auto_approve_return:
                         reasoning_trace.append("  Auto-approve return: YES")
-                    record_pipeline_stage("policy_evaluation", time.perf_counter() - stage_start, tenant_id)
+                    record_pipeline_stage(
+                        "policy_evaluation", time.perf_counter() - stage_start, tenant_id
+                    )
                 except Exception as e:
-                    logger.warning(f"Policy evaluation failed: {e}")
+                    logger.warning("Policy evaluation failed: %s", e, exc_info=True)
                     reasoning_trace.append(f"  Policy evaluation failed: {e}")
         else:
             reasoning_trace.append("Step 7: Policy evaluation (skipped)")
@@ -409,6 +442,7 @@ class IntentEngine:
                 intent_name = parts[1] if len(parts) > 1 else "UNKNOWN"
 
                 from intent_engine.models.intent import IntentConfidence
+
                 if best_match.similarity >= 0.85:
                     tier = IntentConfidence.HIGH
                 elif best_match.similarity >= 0.60:
@@ -423,7 +457,7 @@ class IntentEngine:
                     confidence_tier=tier,
                     evidence=[
                         f"Best match (fallback): {best_match.matched_example[:50]}...",
-                        f"Fallback: LLM unavailable. Based on {best_match.similarity:.2f} similarity to '{best_match.matched_example[:40]}...'"
+                        f"Fallback: LLM unavailable. Based on {best_match.similarity:.2f} similarity to '{best_match.matched_example[:40]}...'",
                     ],
                 )
                 return ReasoningResult(
@@ -465,10 +499,10 @@ class IntentEngine:
         with pipeline_span("llm_decomposition", tenant_id=tenant_id, request_id=request.request_id):
             stage_start = time.perf_counter()
             decomposition = await self.components.decomposer.decompose(
-            text=request.raw_text,
-            entities=extraction_result.entities,
-            match_hints=match_result.top_matches,
-            customer_tier=request.customer_tier,
+                text=request.raw_text,
+                entities=extraction_result.entities,
+                match_hints=match_result.top_matches,
+                customer_tier=request.customer_tier,
                 previous_intents=request.previous_intents,
             )
             record_pipeline_stage("llm_decomposition", time.perf_counter() - stage_start, tenant_id)
@@ -486,9 +520,7 @@ class IntentEngine:
                 constraints=decomposition.constraints,
                 text=request.raw_text,
                 customer_tier=request.customer_tier,
-                frustration_score=(
-                    sentiment_info.frustration_score if sentiment_info else 0.0
-                ),
+                frustration_score=(sentiment_info.frustration_score if sentiment_info else 0.0),
             )
             final_intents = conflict_result.resolved_intents
             reasoning_trace.extend(conflict_result.reasoning)
@@ -514,12 +546,16 @@ class IntentEngine:
         )
 
         # Determine if human handoff needed based on policy or decomposition
-        requires_human = decomposition.requires_clarification or conflict_clarification_question is not None
+        requires_human = (
+            decomposition.requires_clarification or conflict_clarification_question is not None
+        )
         human_reason = decomposition.clarification_question or conflict_clarification_question
         if policy_info and policy_info.escalation_required:
             requires_human = True
             if human_reason:
-                human_reason = f"{human_reason}; Escalation: {', '.join(policy_info.escalation_reasons)}"
+                human_reason = (
+                    f"{human_reason}; Escalation: {', '.join(policy_info.escalation_reasons)}"
+                )
             else:
                 human_reason = f"Escalation required: {', '.join(policy_info.escalation_reasons)}"
 

@@ -4,9 +4,9 @@ import json
 import logging
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import redis.asyncio as redis
 from pydantic import BaseModel, Field
@@ -58,7 +58,7 @@ class BatchJob(BaseModel):
     failed_items: int = 0
 
     # Timing
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -83,7 +83,7 @@ class BatchJob(BaseModel):
         """Calculate job duration in seconds."""
         if self.started_at is None:
             return None
-        end = self.completed_at or datetime.utcnow()
+        end = self.completed_at or datetime.now(timezone.utc)
         return (end - self.started_at).total_seconds()
 
 
@@ -233,7 +233,7 @@ class BatchQueue:
         if job:
             # Update status to processing
             job.status = JobStatus.PROCESSING
-            job.started_at = datetime.utcnow()
+            job.started_at = datetime.now(timezone.utc)
             await self._save_job(job)
             logger.info(f"Dequeued batch job {job_id}")
 
@@ -292,18 +292,20 @@ class BatchQueue:
             job.error = error
 
         if status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
 
         await self._save_job(job)
 
         # Publish status update
         await self.redis.publish(
             self._channel_key(job.tenant_id),
-            json.dumps({
-                "job_id": job_id,
-                "status": status.value,
-                "progress": job.progress(),
-            }),
+            json.dumps(
+                {
+                    "job_id": job_id,
+                    "status": status.value,
+                    "progress": job.progress(),
+                }
+            ),
         )
 
         return job
@@ -336,13 +338,15 @@ class BatchQueue:
         # Publish progress update
         await self.redis.publish(
             self._channel_key(job.tenant_id),
-            json.dumps({
-                "job_id": job_id,
-                "status": job.status.value,
-                "progress": job.progress(),
-                "processed": processed,
-                "failed": failed,
-            }),
+            json.dumps(
+                {
+                    "job_id": job_id,
+                    "status": job.status.value,
+                    "progress": job.progress(),
+                    "processed": processed,
+                    "failed": failed,
+                }
+            ),
         )
 
         return job
@@ -370,7 +374,7 @@ class BatchQueue:
             "success": success,
             "result": result,
             "error": error,
-            "processed_at": datetime.utcnow().isoformat(),
+            "processed_at": datetime.now(timezone.utc).isoformat(),
         }
 
         await self.redis.rpush(
@@ -390,11 +394,12 @@ class BatchQueue:
             List of result entries.
         """
         results = await self.redis.lrange(self._results_key(job_id), 0, -1)
-        return [json.loads(r) for r in results]
+        return [cast(dict[str, Any], json.loads(r)) for r in results]
 
     async def get_queue_length(self, tenant_id: str) -> int:
         """Get number of jobs in queue for a tenant."""
-        return await self.redis.zcard(self._queue_key(tenant_id))
+        n = await self.redis.zcard(self._queue_key(tenant_id))
+        return int(n)
 
     async def cancel_job(self, job_id: str) -> bool:
         """

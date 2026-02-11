@@ -1,15 +1,13 @@
 """Tenant context propagation using contextvars."""
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Generator
 
 from intent_engine.tenancy.models import TenantConfig
 
 # Context variable for the current tenant
-_current_tenant: ContextVar[TenantConfig | None] = ContextVar(
-    "current_tenant", default=None
-)
+_current_tenant: ContextVar[TenantConfig | None] = ContextVar("current_tenant", default=None)
 
 
 def get_current_tenant() -> TenantConfig | None:

@@ -109,6 +109,15 @@ curl -X POST http://localhost:8000/v1/intent/resolve \
 
 The orchestration agent provides a complete customer service flow by combining intent classification, order data fetching, and response generation.
 
+### Lifecycle routing
+
+The **`/v1/agent/chat`** endpoint uses a **lifecycle router** that classifies each message and routes it to the right agent:
+
+- **Pre-purchase** (product search, recommendations, discovery): messages with primary intent `PRODUCT_INQUIRY` or `DISCOVERY` are handled by the **pre-purchase agent**, which uses the **product catalog** (Shopify or Adobe Commerce Optimizer) to answer questions about products, stock, and recommendations.
+- **Post-purchase** (orders, returns, complaints, loyalty, shipping): all other intents are handled by the **customer service agent**, which fetches order/customer data from platform connectors and generates responses with actions.
+
+You do not need to choose an agent yourself; the router decides from the classified intent.
+
 ### Chat Endpoint
 
 ```bash
@@ -143,20 +152,21 @@ Customer Message
        │
        ▼
 ┌──────────────────┐
-│  Intent Engine   │  → Classify intent (WISMO, Return, etc.)
+│  Intent Engine   │  → Classify intent (WISMO, Return, Product search, etc.)
 └────────┬─────────┘
          │
          ▼
 ┌──────────────────┐
-│ Platform Connector│  → Fetch order/customer data
-│ (Shopify/Adobe)  │
+│ Lifecycle Router │  → PRODUCT_INQUIRY / DISCOVERY? → Pre-purchase agent
+│                  │  → Otherwise → Customer service agent
 └────────┬─────────┘
          │
-         ▼
-┌──────────────────┐
-│ Response Generator│  → Generate customer response
-└────────┬─────────┘
-         │
+    ┌────┴────┐
+    ▼         ▼
+Pre-purchase   Post-purchase
+(Catalog)      (Order + Response Generator)
+    │         │
+    └────┬────┘
          ▼
    Agent Response
    (text + actions)
@@ -184,6 +194,19 @@ print(response.response_text)
 print(response.actions[0].action_type)
 # ActionType.PROVIDE_ORDER_STATUS
 ```
+
+### Catalog and pre-purchase
+
+Product search and discovery use a **catalog provider**. Configure one of the following so that pre-purchase messages (e.g. “Do you have this in stock?”, “What do you recommend?”) are answered from your catalog.
+
+| Provider | Env vars | Notes |
+|----------|----------|--------|
+| **Shopify** | `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_ACCESS_TOKEN` | Uses Admin REST API for products. |
+| **Adobe Commerce Optimizer** | `ADOBE_COMMERCE_OPTIMIZER_TENANT_ID`, `ADOBE_COMMERCE_OPTIMIZER_CATALOG_VIEW_ID`, `ADOBE_COMMERCE_OPTIMIZER_LOCALE`; optional `ADOBE_COMMERCE_OPTIMIZER_REGION`, `ADOBE_COMMERCE_OPTIMIZER_ENVIRONMENT`, `ADOBE_COMMERCE_OPTIMIZER_PRICE_BOOK_ID` | [Merchandising Services](https://developer.adobe.com/commerce/services/optimizer/) GraphQL API (SaaS). |
+
+If both Shopify and Adobe Optimizer are set, **Shopify** is used. If no catalog is configured, the router still classifies intents; pre-purchase intents are handled by the pre-purchase agent but catalog tools will return “catalog not available.”
+
+A2A and MCP expose **catalog actions**: `search_catalog`, `get_product_details`, `get_inventory`, `pre_purchase_chat`. See `/.well-known/agent.json` and the MCP tool list for schemas.
 
 ## Development
 
@@ -255,6 +278,12 @@ just lint-fix       # Auto-fix issues
 just fmt            # Format code
 just check          # Run all checks
 ```
+
+## Production
+
+Before deploying, configure security, CORS, secrets, and infrastructure. See **[docs/PRODUCTION.md](docs/PRODUCTION.md)** for a full checklist and **[docs/DEPLOY.md](docs/DEPLOY.md)** for a step-by-step runbook.
+
+**Commands:** `just build-prod` (build production image), `just up-prod` (run with production Compose override). Set `TENANT_DEV_MODE=false`, a strong `API_KEY`, and restrict `CORS_ORIGINS`; use managed PostgreSQL (with pgvector) and Redis, run `just seed` once, and put TLS behind a reverse proxy with `/ready` as the readiness probe.
 
 ## Platform Integrations
 
@@ -333,6 +362,13 @@ ADOBE_COMMERCE_IMS_ORG_ID=your-org-id
 # Adobe Commerce Webhooks
 ADOBE_COMMERCE_WEBHOOK_SECRET=your-webhook-secret
 ADOBE_COMMERCE_WEBHOOK_ENABLED=true
+
+# Adobe Commerce Optimizer (catalog for product search / pre-purchase)
+# ADOBE_COMMERCE_OPTIMIZER_TENANT_ID=your-tenant-id
+# ADOBE_COMMERCE_OPTIMIZER_CATALOG_VIEW_ID=your-catalog-view-id
+# ADOBE_COMMERCE_OPTIMIZER_LOCALE=en_US
+# ADOBE_COMMERCE_OPTIMIZER_REGION=na1
+# ADOBE_COMMERCE_OPTIMIZER_ENVIRONMENT=sandbox
 ```
 
 ## Architecture

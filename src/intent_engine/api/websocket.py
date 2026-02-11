@@ -4,7 +4,8 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 

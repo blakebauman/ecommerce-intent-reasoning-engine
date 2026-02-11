@@ -3,7 +3,7 @@
 import logging
 import time
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import HTTPException, Request, Response
 from fastapi.security import APIKeyHeader
@@ -138,4 +138,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             },
         )
 
+        return response
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security-related headers to all responses."""
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Response]
+    ) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
         return response

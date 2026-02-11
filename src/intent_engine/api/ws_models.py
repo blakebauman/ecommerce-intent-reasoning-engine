@@ -1,6 +1,6 @@
 """WebSocket message models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -33,7 +33,7 @@ class WSMessage(BaseModel):
     type: WSMessageType
     request_id: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # Client → Server Messages
@@ -61,7 +61,7 @@ class ConnectedPayload(BaseModel):
 
     connection_id: str
     tenant_id: str
-    server_time: datetime = Field(default_factory=datetime.utcnow)
+    server_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ReasoningStepPayload(BaseModel):

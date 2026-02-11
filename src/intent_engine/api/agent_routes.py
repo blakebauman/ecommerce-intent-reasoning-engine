@@ -6,16 +6,23 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from intent_engine.agents import CustomerMessage, CustomerServiceAgent
+from intent_engine.agents import (
+    CustomerMessage,
+    CustomerServiceAgent,
+    LifecycleRouter,
+    get_catalog_provider_from_settings,
+)
 from intent_engine.api.middleware import verify_api_key
 from intent_engine.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1/agent", tags=["Agent"])
+api_router = APIRouter(prefix="/v1/agent", tags=["Agent"])
+router = api_router  # Alias for server.include_router(agent_router)
 
 # Global agent instance
 _agent: CustomerServiceAgent | None = None
+_router: LifecycleRouter | None = None
 
 
 async def get_agent() -> CustomerServiceAgent:
@@ -26,6 +33,20 @@ async def get_agent() -> CustomerServiceAgent:
         _agent = CustomerServiceAgent(settings=settings)
         await _agent.initialize()
     return _agent
+
+
+async def get_router(
+    agent: CustomerServiceAgent = Depends(get_agent),
+) -> LifecycleRouter:
+    """Get the lifecycle router (routes to pre-purchase or post-purchase agent)."""
+    global _router
+    if _router is None:
+        _router = LifecycleRouter(
+            intent_engine=agent.intent_engine,
+            customer_service_agent=agent,
+            catalog_provider=get_catalog_provider_from_settings(),
+        )
+    return _router
 
 
 def set_agent(agent: CustomerServiceAgent | None) -> None:
@@ -47,14 +68,18 @@ class ChatRequest(BaseModel):
     order_ids: list[str] = Field(default_factory=list, description="Known order IDs")
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "message_id": "msg-123",
-            "customer_email": "john@example.com",
-            "text": "Where is my order #12345?",
-            "platform": "shopify",
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "message_id": "msg-123",
+                    "customer_email": "john@example.com",
+                    "text": "Where is my order #12345?",
+                    "platform": "shopify",
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class ChatResponse(BaseModel):
@@ -69,38 +94,40 @@ class ChatResponse(BaseModel):
     confidence: float = 0.0
     processing_time_ms: int = 0
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "message_id": "msg-123",
-            "response_text": "Your order #12345 is currently in transit.",
-            "intents": [{"category": "ORDER_STATUS", "intent": "WISMO", "confidence": 0.92}],
-            "confidence": 0.92,
-            "processing_time_ms": 150,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "message_id": "msg-123",
+                    "response_text": "Your order #12345 is currently in transit.",
+                    "intents": [
+                        {"category": "ORDER_STATUS", "intent": "WISMO", "confidence": 0.92}
+                    ],
+                    "confidence": 0.92,
+                    "processing_time_ms": 150,
+                }
+            ]
         }
-    ]}}
+    }
 
 
-@router.post(
+@api_router.post(
     "/chat",
     response_model=ChatResponse,
     summary="Process customer message",
-    description="Send a customer message and receive an AI-generated response with actions.",
+    description="Send a customer message and receive an AI-generated response with actions. Routes to pre-purchase (product/discovery) or post-purchase agent by intent.",
 )
 async def chat(
     body: ChatRequest,
     _api_key: str = Depends(verify_api_key),
-    agent: CustomerServiceAgent = Depends(get_agent),
+    router: LifecycleRouter = Depends(get_router),
 ) -> ChatResponse:
     """
-    Process a customer message through the orchestration agent.
+    Process a customer message through the lifecycle router.
 
-    This endpoint:
-    1. Classifies the customer's intent
-    2. Fetches relevant order/customer data
-    3. Generates an appropriate response
-    4. Recommends actions to take
-
-    The agent maintains conversation context across messages with the same conversation_id.
+    The router classifies intent and:
+    - For product/discovery intents: uses the pre-purchase agent (catalog).
+    - For order/return/complaint/etc.: uses the customer service agent (post-purchase).
     """
     message = CustomerMessage(
         message_id=body.message_id,
@@ -115,7 +142,7 @@ async def chat(
     )
 
     try:
-        result = await agent.process_message(message)
+        result = await router.process_message(message)
 
         return ChatResponse(
             message_id=result.message_id,
@@ -136,7 +163,7 @@ async def chat(
         )
 
 
-@router.get(
+@api_router.get(
     "/health",
     summary="Agent health check",
     description="Check if the agent is initialized and ready.",
@@ -160,7 +187,7 @@ async def agent_health() -> dict[str, Any]:
     }
 
 
-@router.delete(
+@api_router.delete(
     "/conversations/{conversation_id}",
     summary="Clear conversation",
     description="Clear the context for a conversation.",

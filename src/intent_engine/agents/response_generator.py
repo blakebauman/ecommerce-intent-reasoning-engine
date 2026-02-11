@@ -206,6 +206,33 @@ RESPONSE_TEMPLATES = {
     "COMPLAINT.DAMAGED_ITEM": {
         "default": "I'm so sorry to hear your item arrived damaged. I'd like to make this right. Can you tell me which item was damaged and send a photo if possible? I can arrange a replacement or refund.",
     },
+    "LOYALTY_REWARDS.POINTS_BALANCE": {
+        "default": "I can look up your rewards balance. One moment—your points balance will appear in your account dashboard, or I can have a specialist share it with you.",
+    },
+    "LOYALTY_REWARDS.MEMBER_STATUS": {
+        "default": "I'd be happy to help with your member status. You can check your tier and benefits in your account, or I can connect you with someone who can confirm your status.",
+    },
+    "LOYALTY_REWARDS.REDEEM_POINTS": {
+        "default": "You can redeem your points at checkout or in the rewards section of your account. If you tell me what you're interested in, I can point you to the right place.",
+    },
+    "SHIPPING.SHIPPING_OPTIONS": {
+        "default": "We offer standard and express shipping. Standard typically arrives in 5–7 business days; express in 2–3. Options and costs are shown at checkout.",
+    },
+    "SHIPPING.SHIPPING_COST": {
+        "default": "Shipping cost depends on your location and the option you choose. You'll see the exact amount at checkout before you pay.",
+    },
+    "SHIPPING.INTERNATIONAL": {
+        "default": "We do ship internationally to many countries. At checkout you can enter your address to see availability and shipping costs for your location.",
+    },
+    "SHIPPING.DELIVERY_TIME": {
+        "default": "Standard shipping typically arrives in 5–7 business days; express in 2–3. Exact delivery dates are shown at checkout based on your address.",
+    },
+    "PRODUCT_INQUIRY.STOCK": {
+        "default": "For current stock and product details, please use our product assistant or check the product page—it shows live availability.",
+    },
+    "DISCOVERY.RECOMMENDATION": {
+        "default": "Our product assistant can suggest items based on what you like. Try asking it for recommendations, or browse our best sellers and new arrivals on the site.",
+    },
     "NEEDS_ORDER_ID": {
         "default": "I'd be happy to help! Could you please provide your order number? You can find it in your confirmation email.",
     },
@@ -305,9 +332,7 @@ class ResponseGenerator:
         Returns:
             GeneratedResponse with text, tone, and suggested actions.
         """
-        ctx = self._build_response_context(
-            intent_code, order_context, customer_context, entities
-        )
+        ctx = self._build_response_context(intent_code, order_context, customer_context, entities)
 
         # Build prompt for the agent
         prompt = f"Generate a response for intent: {intent_code}"
@@ -338,9 +363,7 @@ class ResponseGenerator:
         Yields:
             Text chunks as they're generated.
         """
-        ctx = self._build_response_context(
-            intent_code, order_context, customer_context, entities
-        )
+        ctx = self._build_response_context(intent_code, order_context, customer_context, entities)
 
         # Build prompt for the agent
         prompt = f"Generate a response for intent: {intent_code}"
@@ -413,8 +436,8 @@ Order Information:
 - Fulfillment: {order_context.fulfillment_status}
 - Total: {order_context.total} {order_context.currency}
 - Created: {order_context.created_at}
-- Tracking: {order_context.tracking_number or 'Not yet shipped'}
-- Carrier: {order_context.carrier or 'N/A'}
+- Tracking: {order_context.tracking_number or "Not yet shipped"}
+- Carrier: {order_context.carrier or "N/A"}
 - Return eligible: {order_context.is_within_return_window}
 - Days until return expires: {order_context.days_until_return_expires}
 """)
@@ -462,7 +485,11 @@ Generate only the response text, no explanations."""
         # Select appropriate template variant
         template_key = "default"
         if order_context:
-            status = order_context.status.lower() if isinstance(order_context.status, str) else order_context.status
+            status = (
+                order_context.status.lower()
+                if isinstance(order_context.status, str)
+                else order_context.status
+            )
             if status in templates:
                 template_key = status
             elif order_context.is_within_return_window and "eligible" in templates:
@@ -504,15 +531,17 @@ Generate only the response text, no explanations."""
         }
 
         if order_context:
-            ctx.update({
-                "order_number": f"#{order_context.order_number}",
-                "status": order_context.status,
-                "carrier": order_context.carrier or "the carrier",
-                "tracking_url": order_context.tracking_url or "",
-                "tracking_number": order_context.tracking_number or "",
-                "currency": order_context.currency,
-                "days_until_return_expires": str(order_context.days_until_return_expires or 0),
-            })
+            ctx.update(
+                {
+                    "order_number": f"#{order_context.order_number}",
+                    "status": order_context.status,
+                    "carrier": order_context.carrier or "the carrier",
+                    "tracking_url": order_context.tracking_url or "",
+                    "tracking_number": order_context.tracking_number or "",
+                    "currency": order_context.currency,
+                    "days_until_return_expires": str(order_context.days_until_return_expires or 0),
+                }
+            )
 
             if order_context.delivered_at:
                 ctx["delivered_at"] = order_context.delivered_at.strftime("%B %d, %Y")

@@ -71,9 +71,7 @@ class TestFrustrationDetection:
         assert result.frustration_score < 0.5
         assert result.priority_flag is False
 
-    def test_multiple_frustration_signals_compound(
-        self, analyzer: SentimentAnalyzer
-    ) -> None:
+    def test_multiple_frustration_signals_compound(self, analyzer: SentimentAnalyzer) -> None:
         """Test that multiple frustration signals are detected."""
         single = analyzer.analyze("I'm confused.")
         multiple = analyzer.analyze(
@@ -144,7 +142,9 @@ class TestEscalationDetection:
         for msg in escalation_messages:
             result = analyzer.analyze(msg)
             # Escalation should boost frustration
-            assert len([s for s in result.signals if "escalation" in s]) > 0, f"No escalation signal for: {msg}"
+            assert len([s for s in result.signals if "escalation" in s]) > 0, (
+                f"No escalation signal for: {msg}"
+            )
 
     def test_cancel_account_escalation(self, analyzer: SentimentAnalyzer) -> None:
         """Test account cancellation as escalation signal."""
@@ -156,9 +156,7 @@ class TestEscalationDetection:
 class TestCapsDetection:
     """Tests for excessive caps detection."""
 
-    def test_all_caps_increases_frustration(
-        self, analyzer: SentimentAnalyzer
-    ) -> None:
+    def test_all_caps_increases_frustration(self, analyzer: SentimentAnalyzer) -> None:
         """Test that ALL CAPS boosts frustration."""
         normal = analyzer.analyze("Where is my order?")
         caps = analyzer.analyze("WHERE IS MY ORDER? I HAVE BEEN WAITING!")
@@ -188,9 +186,7 @@ class TestPositiveAdjustments:
 
     def test_please_and_appreciate(self, analyzer: SentimentAnalyzer) -> None:
         """Test politeness markers reduce frustration."""
-        polite = analyzer.analyze(
-            "Please help me. I appreciate your assistance."
-        )
+        polite = analyzer.analyze("Please help me. I appreciate your assistance.")
         assert polite.frustration_score < 0.5
 
 
@@ -252,16 +248,12 @@ class TestRuleBasedSentiment:
 
     def test_rule_based_negative(self, analyzer: SentimentAnalyzer) -> None:
         """Test rule-based negative detection."""
-        result = analyzer._get_rule_based_sentiment(
-            "terrible horrible awful worst broken"
-        )
+        result = analyzer._get_rule_based_sentiment("terrible horrible awful worst broken")
         assert result < 0
 
     def test_rule_based_positive(self, analyzer: SentimentAnalyzer) -> None:
         """Test rule-based positive detection."""
-        result = analyzer._get_rule_based_sentiment(
-            "great excellent wonderful thank helpful"
-        )
+        result = analyzer._get_rule_based_sentiment("great excellent wonderful thank helpful")
         assert result > 0
 
     def test_rule_based_neutral(self, analyzer: SentimentAnalyzer) -> None:
@@ -373,9 +365,7 @@ class TestConversationSentimentTracker:
         conv = tracker.get_conversation_sentiment()
         assert conv.message_count == 1
 
-    def test_rising_frustration_trajectory(
-        self, tracker: ConversationSentimentTracker
-    ) -> None:
+    def test_rising_frustration_trajectory(self, tracker: ConversationSentimentTracker) -> None:
         """Test detection of rising frustration."""
         tracker.add_message("Where is my order?")
         tracker.add_message("I've been waiting a while.")
@@ -397,13 +387,9 @@ class TestConversationSentimentTracker:
         # Peak should be from the angry message
         assert conv.peak_frustration >= 0.5
 
-    def test_escalation_pattern_detection(
-        self, tracker: ConversationSentimentTracker
-    ) -> None:
+    def test_escalation_pattern_detection(self, tracker: ConversationSentimentTracker) -> None:
         """Test escalation pattern detection."""
-        has_pattern, signals = tracker.detect_escalation_pattern(
-            "I've called 5 times about this!"
-        )
+        has_pattern, signals = tracker.detect_escalation_pattern("I've called 5 times about this!")
         assert has_pattern is True
         assert len(signals) > 0
 

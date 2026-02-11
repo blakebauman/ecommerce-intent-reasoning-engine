@@ -16,6 +16,8 @@ class IntentCategory(str, Enum):
     ACCOUNT_BILLING = "ACCOUNT_BILLING"
     DISCOVERY = "DISCOVERY"
     META = "META"
+    LOYALTY_REWARDS = "LOYALTY_REWARDS"
+    SHIPPING = "SHIPPING"
 
 
 class CoreIntent(str, Enum):
@@ -118,6 +120,20 @@ class CoreIntent(str, Enum):
     META_UNCLEAR = "META.UNCLEAR"  # Cannot understand request
     META_OFF_TOPIC = "META.OFF_TOPIC"  # Not eCommerce related
 
+    # =========================================================================
+    # LOYALTY_REWARDS - Points, rewards, member status
+    # =========================================================================
+    LOYALTY_REWARDS_POINTS_BALANCE = "LOYALTY_REWARDS.POINTS_BALANCE"
+    LOYALTY_REWARDS_REDEEM_POINTS = "LOYALTY_REWARDS.REDEEM_POINTS"
+    LOYALTY_REWARDS_MEMBER_STATUS = "LOYALTY_REWARDS.MEMBER_STATUS"
+
+    # =========================================================================
+    # SHIPPING - Shipping options and costs (pre- or post-purchase)
+    # =========================================================================
+    SHIPPING_SHIPPING_OPTIONS = "SHIPPING.SHIPPING_OPTIONS"
+    SHIPPING_INTERNATIONAL = "SHIPPING.INTERNATIONAL"
+    SHIPPING_SHIPPING_COST = "SHIPPING.SHIPPING_COST"
+
     @property
     def category(self) -> str:
         """Get the category portion of the intent code."""
@@ -192,12 +208,16 @@ class ResolvedIntent(BaseModel):
         """Get the full intent code (CATEGORY.INTENT)."""
         return f"{self.category}.{self.intent}"
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "category": "ORDER_STATUS",
-            "intent": "WISMO",
-            "confidence": 0.92,
-            "confidence_tier": "high",
-            "evidence": ["where is my order"],
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "category": "ORDER_STATUS",
+                    "intent": "WISMO",
+                    "confidence": 0.92,
+                    "confidence_tier": "high",
+                    "evidence": ["where is my order"],
+                }
+            ]
         }
-    ]}}
+    }

@@ -1,11 +1,16 @@
-"""Integration tests for batch processing API."""
+"""Integration tests for batch processing API.
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-import json
-import sys
+Imports are delayed below to avoid pulling in the full app (and spacy) before mocks.
+"""
+# ruff: noqa: E402
+
 import importlib.util
 import os
+import sys
+from unittest.mock import AsyncMock
+
+import pytest
+
 
 # Helper to load modules directly
 def _load_module_directly(module_name: str, file_path: str):
@@ -16,28 +21,26 @@ def _load_module_directly(module_name: str, file_path: str):
     spec.loader.exec_module(module)
     return module
 
+
 # Get base path
 _base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _api_path = os.path.join(_base_path, "src", "intent_engine", "api")
 
 # Pre-load batch_models to prevent api/__init__.py from being triggered
 _batch_models = _load_module_directly(
-    "intent_engine.api.batch_models",
-    os.path.join(_api_path, "batch_models.py")
+    "intent_engine.api.batch_models", os.path.join(_api_path, "batch_models.py")
 )
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 # Import batch queue and tenancy directly (these don't have problematic imports)
-from intent_engine.batch.queue import BatchQueue, BatchJob, JobStatus
+from intent_engine.batch.queue import BatchJob, BatchQueue, JobStatus
 from intent_engine.tenancy.models import TenantConfig, TenantTier
-from intent_engine.tenancy.context import set_tenant_context, clear_tenant_context
 
 # Load batch router module directly
 _batch_module = _load_module_directly(
-    "intent_engine.api.batch_direct",
-    os.path.join(_api_path, "batch.py")
+    "intent_engine.api.batch_direct", os.path.join(_api_path, "batch.py")
 )
 batch_router = _batch_module.router
 set_queue_override = _batch_module.set_queue_override
@@ -315,8 +318,12 @@ class TestBatchAPI:
         app.include_router(batch_router)
 
         mock_queue.list_jobs.return_value = [
-            BatchJob(job_id="job-1", tenant_id="batch-test", status=JobStatus.QUEUED, total_items=10),
-            BatchJob(job_id="job-2", tenant_id="batch-test", status=JobStatus.COMPLETED, total_items=20),
+            BatchJob(
+                job_id="job-1", tenant_id="batch-test", status=JobStatus.QUEUED, total_items=10
+            ),
+            BatchJob(
+                job_id="job-2", tenant_id="batch-test", status=JobStatus.COMPLETED, total_items=20
+            ),
         ]
 
         set_queue_override(mock_queue)

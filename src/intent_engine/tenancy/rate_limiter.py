@@ -2,14 +2,14 @@
 
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
 
 
-class RateLimitExceeded(Exception):
+class RateLimitExceeded(Exception):  # noqa: N818
     """Exception raised when rate limit is exceeded."""
 
     def __init__(
@@ -141,7 +141,7 @@ class RateLimiter:
 
         now = time.time()
 
-        result = await self.redis.eval(
+        raw = await self.redis.eval(
             lua_script,
             2,
             key_tokens,
@@ -151,6 +151,7 @@ class RateLimiter:
             str(tokens_required),
             str(now),
         )
+        result = cast(list[Any], raw)
 
         allowed = bool(result[0])
         remaining = float(result[1])

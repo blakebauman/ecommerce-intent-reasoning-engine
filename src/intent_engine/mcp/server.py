@@ -13,6 +13,8 @@ from mcp.types import TextContent, Tool
 from starlette.applications import Starlette
 from starlette.routing import Route
 
+from intent_engine.agents.catalog_agent import get_catalog_provider_from_settings
+from intent_engine.agents.pre_purchase_agent import PrePurchaseDeps, get_pre_purchase_agent
 from intent_engine.config import Settings, get_settings
 from intent_engine.engine import IntentEngine
 from intent_engine.models.request import InputChannel, IntentRequest
@@ -105,6 +107,55 @@ def create_mcp_server() -> Server:
                     "properties": {},
                 },
             ),
+            Tool(
+                name="search_catalog",
+                description="Search the product catalog by query and optional category. Returns product summaries.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"},
+                        "category": {"type": "string", "description": "Optional category filter"},
+                        "limit": {"type": "integer", "description": "Max results (default 20)"},
+                    },
+                    "required": ["query"],
+                },
+            ),
+            Tool(
+                name="get_product_details",
+                description="Get full details for a single product by product_id or SKU.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "product_id": {"type": "string", "description": "Platform product ID"},
+                        "sku": {"type": "string", "description": "Product or variant SKU"},
+                    },
+                },
+            ),
+            Tool(
+                name="get_inventory",
+                description="Check inventory for a product or variant by product_id or SKU.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "product_id": {"type": "string", "description": "Platform product ID"},
+                        "sku": {"type": "string", "description": "Product or variant SKU"},
+                    },
+                },
+            ),
+            Tool(
+                name="pre_purchase_chat",
+                description=(
+                    "Handle a pre-purchase message (product search, recommendations, discovery). "
+                    "Returns a customer-facing response and optional product list."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "raw_text": {"type": "string", "description": "The customer message"},
+                    },
+                    "required": ["raw_text"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -117,6 +168,14 @@ def create_mcp_server() -> Server:
                 return await _handle_classify_fast(arguments)
             elif name == "list_intent_taxonomy":
                 return await _handle_list_taxonomy(arguments)
+            elif name == "search_catalog":
+                return await _handle_search_catalog(arguments)
+            elif name == "get_product_details":
+                return await _handle_get_product_details(arguments)
+            elif name == "get_inventory":
+                return await _handle_get_inventory(arguments)
+            elif name == "pre_purchase_chat":
+                return await _handle_pre_purchase_chat(arguments)
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
         except Exception as e:
@@ -232,17 +291,116 @@ async def _handle_list_taxonomy(arguments: dict[str, Any]) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(response, indent=2))]
 
 
+async def _handle_search_catalog(arguments: dict[str, Any]) -> list[TextContent]:
+    """Handle search_catalog tool call."""
+    catalog = get_catalog_provider_from_settings()
+    if catalog is None:
+        return [TextContent(type="text", text=json.dumps({"error": "Catalog not configured"}))]
+    query = arguments.get("query", "").strip()
+    if not query:
+        return [TextContent(type="text", text=json.dumps({"error": "query is required"}))]
+    products = await catalog.search_products(
+        query,
+        category=arguments.get("category"),
+        limit=int(arguments.get("limit", 20)),
+    )
+    response = {
+        "products": [
+            {
+                "product_id": p.product_id,
+                "name": p.name,
+                "category": p.category,
+                "sku": p.sku,
+                "price": p.price,
+                "currency": p.currency,
+                "is_in_stock": p.is_in_stock,
+            }
+            for p in products
+        ],
+        "total_found": len(products),
+    }
+    return [TextContent(type="text", text=json.dumps(response, indent=2))]
+
+
+async def _handle_get_product_details(arguments: dict[str, Any]) -> list[TextContent]:
+    """Handle get_product_details tool call."""
+    catalog = get_catalog_provider_from_settings()
+    if catalog is None:
+        return [TextContent(type="text", text=json.dumps({"product": None, "error": "Catalog not configured"}))]
+    product_id = arguments.get("product_id")
+    sku = arguments.get("sku")
+    if not product_id and not sku:
+        return [TextContent(type="text", text=json.dumps({"error": "product_id or sku is required"}))]
+    product = await catalog.get_product(product_id=product_id, sku=sku)
+    if product is None:
+        return [TextContent(type="text", text=json.dumps({"product": None}))]
+    response = {
+        "product": {
+            "product_id": product.product_id,
+            "name": product.name,
+            "description_plain": product.description_plain,
+            "category": product.category,
+            "sku": product.sku,
+            "price": product.price,
+            "currency": product.currency,
+            "is_in_stock": product.is_in_stock,
+            "inventory_quantity": product.inventory_quantity,
+            "image_url": product.image_url,
+        }
+    }
+    return [TextContent(type="text", text=json.dumps(response, indent=2))]
+
+
+async def _handle_get_inventory(arguments: dict[str, Any]) -> list[TextContent]:
+    """Handle get_inventory tool call."""
+    catalog = get_catalog_provider_from_settings()
+    if catalog is None:
+        return [TextContent(type="text", text=json.dumps({"inventory": None, "error": "Catalog not configured"}))]
+    product_id = arguments.get("product_id")
+    sku = arguments.get("sku")
+    if not product_id and not sku:
+        return [TextContent(type="text", text=json.dumps({"error": "product_id or sku is required"}))]
+    inv = await catalog.get_inventory(product_id=product_id, sku=sku)
+    if inv is None:
+        return [TextContent(type="text", text=json.dumps({"inventory": None}))]
+    response = {
+        "inventory": {
+            "product_id": inv.product_id,
+            "variant_id": inv.variant_id,
+            "sku": inv.sku,
+            "quantity_available": inv.quantity_available,
+            "is_in_stock": inv.is_in_stock,
+        }
+    }
+    return [TextContent(type="text", text=json.dumps(response, indent=2))]
+
+
+async def _handle_pre_purchase_chat(arguments: dict[str, Any]) -> list[TextContent]:
+    """Handle pre_purchase_chat tool call."""
+    raw_text = arguments.get("raw_text", "").strip()
+    if not raw_text:
+        return [TextContent(type="text", text=json.dumps({"error": "raw_text is required"}))]
+    engine = await get_engine()
+    catalog = get_catalog_provider_from_settings()
+    deps = PrePurchaseDeps(intent_engine=engine, catalog_provider=catalog)
+    agent = get_pre_purchase_agent()
+    result = await agent.run(raw_text, deps=deps)
+    out = result.output
+    response = {
+        "response_text": out.response_text,
+        "products": out.products,
+        "primary_intent": out.primary_intent,
+    }
+    return [TextContent(type="text", text=json.dumps(response, indent=2))]
+
+
 def create_sse_app(server: Server) -> Starlette:
     """Create a Starlette app with SSE transport for the MCP server."""
     sse = SseServerTransport("/messages/")
 
     async def handle_sse(request):
-        async with sse.connect_sse(
-            request.scope, request.receive, request._send
-        ) as streams:
-            await server.run(
-                streams[0], streams[1], server.create_initialization_options()
-            )
+        async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
+            await server.run(streams[0], streams[1], server.create_initialization_options())
 
     async def handle_messages(request):
         """Wrap the SSE transport's handle_post_message for Starlette."""

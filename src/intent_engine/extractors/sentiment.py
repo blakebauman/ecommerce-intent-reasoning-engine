@@ -127,7 +127,10 @@ class SentimentAnalyzer:
         (r"\bsuper[,.]", 0.60),  # "Super, now what"
         (r"\bawesome[,.]", 0.65),  # "Awesome, another delay"
         (r"\bgreat[,.]", 0.50),  # "Great, it's wrong" (comma after = likely sarcasm)
-        (r"\bthanks\s+(?:so\s+much|a\s+lot)[,.]?\s+(?:for|now)", 0.70),  # "Thanks a lot for nothing"
+        (
+            r"\bthanks\s+(?:so\s+much|a\s+lot)[,.]?\s+(?:for|now)",
+            0.70,
+        ),  # "Thanks a lot for nothing"
         (r"\breally[?!]+", 0.55),  # "Really?!" - disbelief
         (r"\bwow[,.]", 0.50),  # "Wow, still nothing"
     ]
@@ -135,8 +138,21 @@ class SentimentAnalyzer:
     # Contradiction patterns (positive word + negative context in same sentence)
     CONTRADICTION_WORDS = {
         "positive": ["great", "wonderful", "fantastic", "amazing", "perfect", "awesome", "lovely"],
-        "negative": ["broken", "damaged", "wrong", "missing", "late", "never", "still waiting",
-                     "another", "again", "still no", "don't work", "doesn't work", "failed"],
+        "negative": [
+            "broken",
+            "damaged",
+            "wrong",
+            "missing",
+            "late",
+            "never",
+            "still waiting",
+            "another",
+            "again",
+            "still no",
+            "don't work",
+            "doesn't work",
+            "failed",
+        ],
     }
 
     PRIORITY_THRESHOLD = 0.7  # Route to priority queue above this
@@ -283,13 +299,41 @@ class SentimentAnalyzer:
         positive_count = 0
 
         negative_words = [
-            "bad", "terrible", "horrible", "awful", "worst", "hate", "angry",
-            "disappointed", "frustrated", "upset", "annoyed", "problem", "issue",
-            "broken", "damaged", "wrong", "missing", "late", "slow", "never",
+            "bad",
+            "terrible",
+            "horrible",
+            "awful",
+            "worst",
+            "hate",
+            "angry",
+            "disappointed",
+            "frustrated",
+            "upset",
+            "annoyed",
+            "problem",
+            "issue",
+            "broken",
+            "damaged",
+            "wrong",
+            "missing",
+            "late",
+            "slow",
+            "never",
         ]
         positive_words = [
-            "good", "great", "excellent", "wonderful", "love", "happy", "satisfied",
-            "thank", "thanks", "appreciate", "helpful", "perfect", "amazing",
+            "good",
+            "great",
+            "excellent",
+            "wonderful",
+            "love",
+            "happy",
+            "satisfied",
+            "thank",
+            "thanks",
+            "appreciate",
+            "helpful",
+            "perfect",
+            "amazing",
         ]
 
         for word in negative_words:
@@ -416,12 +460,8 @@ class SentimentAnalyzer:
                 signals.append(f"sarcasm_pattern:{pattern[:25]}")
 
         # Check for contradiction (positive word near negative context)
-        has_positive = any(
-            word in text_lower for word in self.CONTRADICTION_WORDS["positive"]
-        )
-        has_negative = any(
-            phrase in text_lower for phrase in self.CONTRADICTION_WORDS["negative"]
-        )
+        has_positive = any(word in text_lower for word in self.CONTRADICTION_WORDS["positive"])
+        has_negative = any(phrase in text_lower for phrase in self.CONTRADICTION_WORDS["negative"])
 
         if has_positive and has_negative:
             # Higher confidence if they're close together
@@ -465,7 +505,9 @@ class ConversationSentimentTracker:
     """
 
     ESCALATION_PATTERNS = [
-        re.compile(r"\b(I'?ve|I have) (asked|called|emailed|messaged|tried) (\d+|\w+) times?\b", re.I),
+        re.compile(
+            r"\b(I'?ve|I have) (asked|called|emailed|messaged|tried) (\d+|\w+) times?\b", re.I
+        ),
         re.compile(r"\bthis is the (\d+)(st|nd|rd|th) time\b", re.I),
         re.compile(r"\b(again|still|yet again)\b", re.I),
         re.compile(r"\b(for (days|weeks|months))\b", re.I),
@@ -512,8 +554,12 @@ class ConversationSentimentTracker:
 
         # Calculate trajectory
         if len(frustration_scores) >= 3:
-            first_half = sum(frustration_scores[:len(frustration_scores)//2]) / (len(frustration_scores)//2)
-            second_half = sum(frustration_scores[len(frustration_scores)//2:]) / (len(frustration_scores) - len(frustration_scores)//2)
+            first_half = sum(frustration_scores[: len(frustration_scores) // 2]) / (
+                len(frustration_scores) // 2
+            )
+            second_half = sum(frustration_scores[len(frustration_scores) // 2 :]) / (
+                len(frustration_scores) - len(frustration_scores) // 2
+            )
 
             if second_half > first_half + 0.1:
                 trajectory = "rising"
@@ -525,9 +571,7 @@ class ConversationSentimentTracker:
             trajectory = "constant"
 
         # Check for escalation patterns in any message
-        escalation_detected = any(
-            "escalation:" in s for r in self._history for s in r.signals
-        )
+        escalation_detected = any("escalation:" in s for r in self._history for s in r.signals)
 
         return ConversationSentiment(
             message_count=len(self._history),

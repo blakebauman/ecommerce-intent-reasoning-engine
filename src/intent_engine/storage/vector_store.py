@@ -1,8 +1,8 @@
 """Vector storage operations using pgvector."""
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, AsyncIterator
 
 import asyncpg
 from pgvector.asyncpg import register_vector
@@ -56,6 +56,17 @@ class VectorStore:
             await self._pool.close()
             self._pool = None
 
+    async def check(self) -> bool:
+        """Check database connectivity (for readiness probes). Returns True if connected."""
+        if not self._pool:
+            return False
+        try:
+            async with self._pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            return True
+        except Exception:
+            return False
+
     @asynccontextmanager
     async def acquire(self) -> AsyncIterator[asyncpg.Connection]:
         """Acquire a connection from the pool."""
@@ -95,7 +106,7 @@ class VectorStore:
                 example_text,
                 embedding,
             )
-            return row["id"]
+            return int(row["id"])
 
     async def insert_embeddings_batch(
         self,

@@ -1,7 +1,6 @@
 """Entity extraction using regex patterns and spaCy NER."""
 
 import re
-from typing import Any
 
 import dateparser
 import spacy
@@ -91,14 +90,28 @@ class EntityExtractor:
     # Damage severity patterns
     DAMAGE_SEVERITY_PATTERNS = [
         # Minor damage
-        (re.compile(r"\b(slight(ly)?|minor|small|tiny|little) (scratch|dent|mark|scuff)\b", re.I), DamageSeverity.MINOR),
-        (re.compile(r"\b(cosmetic|surface|superficial) (damage|issue|problem)\b", re.I), DamageSeverity.MINOR),
+        (
+            re.compile(
+                r"\b(slight(ly)?|minor|small|tiny|little) (scratch|dent|mark|scuff)\b", re.I
+            ),
+            DamageSeverity.MINOR,
+        ),
+        (
+            re.compile(r"\b(cosmetic|surface|superficial) (damage|issue|problem)\b", re.I),
+            DamageSeverity.MINOR,
+        ),
         # Moderate damage
-        (re.compile(r"\b(noticeable|visible|obvious) (damage|crack|dent)\b", re.I), DamageSeverity.MODERATE),
+        (
+            re.compile(r"\b(noticeable|visible|obvious) (damage|crack|dent)\b", re.I),
+            DamageSeverity.MODERATE,
+        ),
         (re.compile(r"\b(dented|scratched|chipped)\b", re.I), DamageSeverity.MODERATE),
         (re.compile(r"\bpartly (broken|damaged)\b", re.I), DamageSeverity.MODERATE),
         # Severe damage
-        (re.compile(r"\b(badly|severely|heavily) (damaged|broken|cracked)\b", re.I), DamageSeverity.SEVERE),
+        (
+            re.compile(r"\b(badly|severely|heavily) (damaged|broken|cracked)\b", re.I),
+            DamageSeverity.SEVERE,
+        ),
         (re.compile(r"\b(completely|totally|entirely) broken\b", re.I), DamageSeverity.SEVERE),
         (re.compile(r"\b(shattered|crushed|smashed|destroyed)\b", re.I), DamageSeverity.DESTROYED),
         (re.compile(r"\bin pieces\b", re.I), DamageSeverity.DESTROYED),
@@ -107,16 +120,34 @@ class EntityExtractor:
     # Defect category patterns
     DEFECT_CATEGORY_PATTERNS = [
         (re.compile(r"\b(wrong|different|incorrect) color\b", re.I), DefectCategory.COLOR_MISMATCH),
-        (re.compile(r"\bcolor (doesn't match|is off|is wrong)\b", re.I), DefectCategory.COLOR_MISMATCH),
+        (
+            re.compile(r"\bcolor (doesn't match|is off|is wrong)\b", re.I),
+            DefectCategory.COLOR_MISMATCH,
+        ),
         (re.compile(r"\b(wrong|incorrect|different) size\b", re.I), DefectCategory.SIZE_WRONG),
         (re.compile(r"\b(too (big|small|large|tight|loose))\b", re.I), DefectCategory.SIZE_WRONG),
         (re.compile(r"\b(doesn't|does not) fit\b", re.I), DefectCategory.SIZE_WRONG),
         (re.compile(r"\b(broken|cracked|shattered|busted)\b", re.I), DefectCategory.BROKEN),
-        (re.compile(r"\b(missing|no|without) (parts?|pieces?|components?|accessories?)\b", re.I), DefectCategory.MISSING_PARTS),
-        (re.compile(r"\b(manufacturing|factory) (defect|flaw|issue)\b", re.I), DefectCategory.MANUFACTURING_DEFECT),
-        (re.compile(r"\b(shipping|transit|delivery) damage\b", re.I), DefectCategory.SHIPPING_DAMAGE),
-        (re.compile(r"\b(not as (described|advertised|pictured|shown))\b", re.I), DefectCategory.NOT_AS_DESCRIBED),
-        (re.compile(r"\b(doesn't|does not) (work|function|turn on|power on)\b", re.I), DefectCategory.FUNCTIONALITY_ISSUE),
+        (
+            re.compile(r"\b(missing|no|without) (parts?|pieces?|components?|accessories?)\b", re.I),
+            DefectCategory.MISSING_PARTS,
+        ),
+        (
+            re.compile(r"\b(manufacturing|factory) (defect|flaw|issue)\b", re.I),
+            DefectCategory.MANUFACTURING_DEFECT,
+        ),
+        (
+            re.compile(r"\b(shipping|transit|delivery) damage\b", re.I),
+            DefectCategory.SHIPPING_DAMAGE,
+        ),
+        (
+            re.compile(r"\b(not as (described|advertised|pictured|shown))\b", re.I),
+            DefectCategory.NOT_AS_DESCRIBED,
+        ),
+        (
+            re.compile(r"\b(doesn't|does not) (work|function|turn on|power on)\b", re.I),
+            DefectCategory.FUNCTIONALITY_ISSUE,
+        ),
     ]
 
     # Carrier patterns
@@ -283,9 +314,7 @@ class EntityExtractor:
 
         return entities
 
-    def _deduplicate_entities(
-        self, entities: list[ExtractedEntity]
-    ) -> list[ExtractedEntity]:
+    def _deduplicate_entities(self, entities: list[ExtractedEntity]) -> list[ExtractedEntity]:
         """Remove duplicate entities, keeping the highest confidence one."""
         seen: dict[tuple[EntityType, str], ExtractedEntity] = {}
 
@@ -375,8 +404,4 @@ class EntityExtractor:
     def extract_order_ids(self, text: str) -> list[str]:
         """Convenience method to extract just order IDs."""
         result = self.extract(text)
-        return [
-            e.value
-            for e in result.entities
-            if e.entity_type == EntityType.ORDER_ID
-        ]
+        return [e.value for e in result.entities if e.entity_type == EntityType.ORDER_ID]

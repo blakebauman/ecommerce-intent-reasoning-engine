@@ -7,7 +7,6 @@ from typing import Any
 
 from intent_engine.integrations.base import OrderStatus
 from intent_engine.integrations.bigcommerce.mapping import (
-    get_carrier_name,
     map_order_status,
 )
 
@@ -104,7 +103,7 @@ class BigCommerceWebhookHandler:
     async def handle_event(
         self,
         scope: str,
-        payload: dict,
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Handle a webhook event.
@@ -139,7 +138,7 @@ class BigCommerceWebhookHandler:
     async def handle_order_event(
         self,
         scope: str,
-        payload: dict,
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Handle order events.
@@ -222,7 +221,7 @@ class BigCommerceWebhookHandler:
     async def handle_shipment_event(
         self,
         scope: str,
-        payload: dict,
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Handle shipment events.

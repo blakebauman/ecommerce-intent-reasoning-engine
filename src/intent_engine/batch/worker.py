@@ -5,7 +5,8 @@ import hashlib
 import hmac
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import httpx
 
@@ -226,10 +227,7 @@ class BatchWorker:
                         )
 
             # Process all items concurrently
-            await asyncio.gather(*[
-                process_with_semaphore(item)
-                for item in job.items
-            ])
+            await asyncio.gather(*[process_with_semaphore(item) for item in job.items])
 
             # Update final status
             status = JobStatus.COMPLETED if failed == 0 else JobStatus.FAILED
@@ -300,6 +298,7 @@ class BatchWorker:
             }
 
             import json
+
             body = json.dumps(payload)
 
             headers = {"Content-Type": "application/json"}

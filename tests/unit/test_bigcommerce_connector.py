@@ -1,18 +1,19 @@
 """Unit tests for BigCommerce connector."""
 
-import pytest
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
+import httpx
+import pytest
+
+from intent_engine.integrations.base import FulfillmentStatus, OrderStatus
 from intent_engine.integrations.bigcommerce.connector import BigCommerceConnector
 from intent_engine.integrations.bigcommerce.mapping import (
-    map_order_status,
-    map_fulfillment_status,
     get_carrier_name,
     get_status_name,
     get_tracking_url,
+    map_fulfillment_status,
+    map_order_status,
 )
-from intent_engine.integrations.base import OrderStatus, FulfillmentStatus
 
 
 class TestBigCommerceStatusMapping:
@@ -64,7 +65,9 @@ class TestBigCommerceStatusMapping:
 
     def test_map_fulfillment_partially_shipped(self):
         """Test fulfillment status for partially shipped orders."""
-        assert map_fulfillment_status(3, items_shipped=1, total_items=3) == FulfillmentStatus.PARTIAL
+        assert (
+            map_fulfillment_status(3, items_shipped=1, total_items=3) == FulfillmentStatus.PARTIAL
+        )
 
     def test_map_fulfillment_pending(self):
         """Test fulfillment status for pending orders."""
@@ -150,9 +153,9 @@ class TestBigCommerceConnector:
         with patch.object(connector, "_request_v2", new_callable=AsyncMock) as mock_v2:
             mock_v2.side_effect = [
                 mock_order,  # Order data
-                [],          # Products
-                [],          # Shipping addresses
-                [],          # Shipments
+                [],  # Products
+                [],  # Shipping addresses
+                [],  # Shipments
             ]
 
             order = await connector.get_order("123")
@@ -182,7 +185,7 @@ class TestBigCommerceConnector:
     async def test_health_check_failure(self, connector):
         """Test health check when API fails."""
         with patch.object(connector, "_request_v2", new_callable=AsyncMock) as mock_request:
-            mock_request.side_effect = Exception("Connection failed")
+            mock_request.side_effect = httpx.RequestError("Connection failed")
             result = await connector.health_check()
             assert result is False
 

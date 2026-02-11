@@ -1,6 +1,6 @@
 """Context models for order and customer data enrichment."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -64,16 +64,20 @@ class CustomerProfile(BaseModel):
     is_at_risk: bool = False
     requires_escalation: bool = False
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "customer_id": "cust-12345",
-            "email": "john@example.com",
-            "name": "John Doe",
-            "tier": "premium",
-            "lifetime_value": 2500.00,
-            "total_orders": 15,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "customer_id": "cust-12345",
+                    "email": "john@example.com",
+                    "name": "John Doe",
+                    "tier": "premium",
+                    "lifetime_value": 2500.00,
+                    "total_orders": 15,
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class ProductContext(BaseModel):
@@ -138,7 +142,7 @@ class OrderContext(BaseModel):
     delivered_at: datetime | None = None
 
     # Shipping
-    shipping_address: dict | None = None  # Simplified for context
+    shipping_address: dict[str, str] | None = None  # Simplified for context
     tracking_number: str | None = None
     carrier: str | None = None
     tracking_url: str | None = None
@@ -155,18 +159,22 @@ class OrderContext(BaseModel):
     is_fully_refunded: bool = False
     is_partially_refunded: bool = False
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "order_id": "12345",
-            "order_number": "#1234",
-            "status": "delivered",
-            "fulfillment_status": "fulfilled",
-            "customer_email": "john@example.com",
-            "total": 129.99,
-            "is_within_return_window": True,
-            "days_until_return_expires": 15,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "order_id": "12345",
+                    "order_number": "#1234",
+                    "status": "delivered",
+                    "fulfillment_status": "fulfilled",
+                    "customer_email": "john@example.com",
+                    "total": 129.99,
+                    "is_within_return_window": True,
+                    "days_until_return_expires": 15,
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class EnrichedContext(BaseModel):
@@ -196,16 +204,24 @@ class EnrichedContext(BaseModel):
     recent_complaints: int = 0
 
     # Enrichment metadata
-    enriched_at: datetime = Field(default_factory=datetime.utcnow)
+    enriched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     data_sources: list[str] = Field(default_factory=list)
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "customer": {"customer_id": "cust-123", "email": "john@example.com", "tier": "premium"},
-            "order": {"order_id": "12345", "order_number": "#1234", "status": "delivered"},
-            "auto_approve_return": True,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "customer": {
+                        "customer_id": "cust-123",
+                        "email": "john@example.com",
+                        "tier": "premium",
+                    },
+                    "order": {"order_id": "12345", "order_number": "#1234", "status": "delivered"},
+                    "auto_approve_return": True,
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class PolicyContext(BaseModel):
@@ -232,10 +248,14 @@ class PolicyContext(BaseModel):
     priority_response_sla_minutes: int = 60
     standard_response_sla_minutes: int = 240
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "tenant_id": "merchant-1",
-            "default_return_window_days": 30,
-            "auto_approve_return_max_amount": 150.0,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "tenant_id": "merchant-1",
+                    "default_return_window_days": 30,
+                    "auto_approve_return_max_amount": 150.0,
+                }
+            ]
         }
-    ]}}
+    }

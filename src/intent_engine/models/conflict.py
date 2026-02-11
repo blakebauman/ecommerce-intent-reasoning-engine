@@ -30,9 +30,7 @@ class ConflictResolutionOutput(BaseModel):
     resolved_intents: list[ResolvedIntent] = Field(
         description="Final list of intents after conflict resolution"
     )
-    has_conflict: bool = Field(
-        default=False, description="Whether any conflicts were detected"
-    )
+    has_conflict: bool = Field(default=False, description="Whether any conflicts were detected")
     conflict_type: ConflictType | None = Field(
         default=None, description="Type of conflict if detected"
     )
@@ -43,9 +41,7 @@ class ConflictResolutionOutput(BaseModel):
         default=ResolutionStrategy.PRIORITY,
         description="Strategy used to resolve the conflict",
     )
-    reasoning: list[str] = Field(
-        default_factory=list, description="Step-by-step reasoning trace"
-    )
+    reasoning: list[str] = Field(default_factory=list, description="Step-by-step reasoning trace")
     requires_clarification: bool = Field(
         default=False, description="Whether customer input is needed"
     )

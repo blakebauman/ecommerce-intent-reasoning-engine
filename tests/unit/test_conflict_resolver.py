@@ -25,7 +25,9 @@ def make_intent(
     tier = (
         IntentConfidence.HIGH
         if confidence >= 0.85
-        else IntentConfidence.MEDIUM if confidence >= 0.6 else IntentConfidence.LOW
+        else IntentConfidence.MEDIUM
+        if confidence >= 0.6
+        else IntentConfidence.LOW
     )
     return ResolvedIntent(
         category=category,

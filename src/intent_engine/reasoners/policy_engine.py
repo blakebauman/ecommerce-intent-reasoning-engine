@@ -2,18 +2,15 @@
 
 import json
 import logging
-import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
 
 from intent_engine.models.context import (
     CustomerProfile,
     CustomerTier,
     EnrichedContext,
     OrderContext,
-    PolicyContext,
     ReturnEligibility,
 )
 
@@ -48,7 +45,7 @@ class PolicyDecision:
 
     # Metadata
     policy_version: str = "1.0.0"
-    evaluated_at: datetime = field(default_factory=datetime.utcnow)
+    evaluated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     rules_applied: list[str] = field(default_factory=list)
 
 
@@ -69,7 +66,7 @@ class PolicyEngine:
     def __init__(
         self,
         policy_path: Path | str | None = None,
-        default_policy: dict | None = None,
+        default_policy: dict[str, object] | None = None,
     ) -> None:
         """
         Initialize the policy engine.
@@ -104,7 +101,7 @@ class PolicyEngine:
             except Exception as e:
                 logger.error(f"Failed to load policy {policy_file}: {e}")
 
-    def get_policy(self, tenant_id: str) -> dict:
+    def get_policy(self, tenant_id: str) -> dict[str, object]:
         """Get policy for a tenant, falling back to default."""
         if tenant_id in self._policies:
             return self._policies[tenant_id]
@@ -148,9 +145,7 @@ class PolicyEngine:
             decision.rules_applied.append("auto_approval")
 
         # Evaluate escalation triggers
-        self._evaluate_escalation(
-            decision, context, customer, frustration_score, policy
-        )
+        self._evaluate_escalation(decision, context, customer, frustration_score, policy)
         decision.rules_applied.append("escalation")
 
         # Evaluate priority routing
@@ -174,7 +169,7 @@ class PolicyEngine:
         decision: PolicyDecision,
         order: OrderContext,
         customer: CustomerProfile | None,
-        policy: dict,
+        policy: dict[str, object],
     ) -> None:
         """Evaluate return window and eligibility."""
         return_policy = policy.get("return_policy", {})
@@ -208,7 +203,9 @@ class PolicyEngine:
         # Check final sale categories
         final_sale_categories = return_policy.get("final_sale_categories", [])
         for item in order.items:
-            if item.category and item.category.lower() in [c.lower() for c in final_sale_categories]:
+            if item.category and item.category.lower() in [
+                c.lower() for c in final_sale_categories
+            ]:
                 decision.return_eligible = False
                 decision.return_ineligible_reason = f"Category '{item.category}' is final sale"
                 return
@@ -221,7 +218,7 @@ class PolicyEngine:
         order: OrderContext,
         customer: CustomerProfile,
         intent: str,
-        policy: dict,
+        policy: dict[str, object],
     ) -> None:
         """Evaluate auto-approval thresholds."""
         auto_approval = policy.get("auto_approval", {})
@@ -235,13 +232,16 @@ class PolicyEngine:
         # Return auto-approval
         if intent in ["RETURN_INITIATE", "RETURN_REQUEST"]:
             return_rules = auto_approval.get("return", {})
-            max_amount = return_rules.get(f"max_amount_{tier}", return_rules.get("max_amount_standard", 100))
+            max_amount = return_rules.get(
+                f"max_amount_{tier}", return_rules.get("max_amount_standard", 100)
+            )
 
             if order_total <= max_amount and decision.return_eligible:
                 # Check exclusions
                 excluded_categories = return_rules.get("excluded_categories", [])
                 has_excluded = any(
-                    item.category and item.category.lower() in [c.lower() for c in excluded_categories]
+                    item.category
+                    and item.category.lower() in [c.lower() for c in excluded_categories]
                     for item in order.items
                 )
 
@@ -251,7 +251,9 @@ class PolicyEngine:
         # Refund auto-approval
         if intent in ["REFUND_STATUS", "REFUND_REQUEST"]:
             refund_rules = auto_approval.get("refund", {})
-            max_amount = refund_rules.get(f"max_amount_{tier}", refund_rules.get("max_amount_standard", 50))
+            max_amount = refund_rules.get(
+                f"max_amount_{tier}", refund_rules.get("max_amount_standard", 50)
+            )
 
             if order_total <= max_amount:
                 decision.auto_approve_refund = True
@@ -270,7 +272,7 @@ class PolicyEngine:
         context: EnrichedContext,
         customer: CustomerProfile | None,
         frustration_score: float,
-        policy: dict,
+        policy: dict[str, object],
     ) -> None:
         """Evaluate escalation triggers."""
         escalation_rules = policy.get("escalation", {})
@@ -321,7 +323,9 @@ class PolicyEngine:
         # Check for escalation keywords (would be checked against raw text)
         # This is handled at a higher level where we have access to text
 
-    def check_escalation_keywords(self, text: str, policy: dict) -> list[str]:
+    def check_escalation_keywords(
+        self, text: str, policy: dict[str, object]
+    ) -> list[str]:
         """Check text for escalation-triggering keywords."""
         escalation_rules = policy.get("escalation", {})
         keywords = escalation_rules.get("auto_escalate_keywords", [])
@@ -340,7 +344,7 @@ class PolicyEngine:
         customer: CustomerProfile | None,
         order: OrderContext | None,
         frustration_score: float,
-        policy: dict,
+        policy: dict[str, object],
     ) -> None:
         """Evaluate priority routing."""
         priority_rules = policy.get("priority_routing", {})
@@ -428,7 +432,7 @@ class PolicyEngine:
             return True, None, None
 
         window_end = order.created_at + timedelta(days=window_days)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         remaining = (window_end - now).days
 
         if remaining < 0:

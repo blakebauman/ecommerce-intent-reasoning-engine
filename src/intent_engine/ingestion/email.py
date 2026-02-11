@@ -3,7 +3,7 @@
 import email
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from email.utils import parseaddr, parsedate_to_datetime
 from typing import Any
@@ -147,11 +147,13 @@ class EmailAdapter(ChannelAdapter):
         # Handle attachments
         attachments: list[Attachment] = []
         for att in parsed.get("attachments", []):
-            attachments.append(Attachment(
-                url=att.get("url", ""),
-                mime_type=att.get("mime_type", "application/octet-stream"),
-                filename=att.get("filename"),
-            ))
+            attachments.append(
+                Attachment(
+                    url=att.get("url", ""),
+                    mime_type=att.get("mime_type", "application/octet-stream"),
+                    filename=att.get("filename"),
+                )
+            )
 
         # Determine conversation ID from message threading
         conversation_id = None
@@ -167,7 +169,7 @@ class EmailAdapter(ChannelAdapter):
             request_id=request_id,
             tenant_id=tenant_id,
             channel=InputChannel.EMAIL,
-            timestamp=parsed.get("timestamp", datetime.utcnow()),
+            timestamp=parsed.get("timestamp", datetime.now(timezone.utc)),
             raw_text=raw_text,
             raw_metadata=raw_metadata,
             attachments=attachments,
@@ -187,7 +189,7 @@ class EmailAdapter(ChannelAdapter):
         to_addr = parseaddr(msg.get("To", ""))
 
         # Parse timestamp
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
         if date_str := msg.get("Date"):
             try:
                 timestamp = parsedate_to_datetime(date_str)
@@ -281,11 +283,13 @@ class EmailAdapter(ChannelAdapter):
 
                     # For now, we just track metadata
                     # Image analysis deferred to Phase 3
-                    attachments.append({
-                        "mime_type": content_type,
-                        "filename": filename,
-                        "url": "",  # Would be populated after storage
-                    })
+                    attachments.append(
+                        {
+                            "mime_type": content_type,
+                            "filename": filename,
+                            "url": "",  # Would be populated after storage
+                        }
+                    )
 
         return attachments
 
@@ -306,7 +310,7 @@ class EmailAdapter(ChannelAdapter):
 
     def _parse_structured_email(self, raw_input: dict[str, Any]) -> dict[str, Any]:
         """Parse pre-structured email input."""
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
         if ts := raw_input.get("timestamp"):
             if isinstance(ts, str):
                 try:

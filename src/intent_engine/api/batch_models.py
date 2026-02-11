@@ -50,15 +50,27 @@ class CreateBatchJobRequest(BaseModel):
         description="Optional metadata",
     )
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "items": [
-                {"subject": "Order issue", "body": "Where is my order #1234?", "from_email": "customer@example.com"},
-                {"subject": "Return request", "body": "I want to return item ABC", "from_email": "other@example.com"},
-            ],
-            "priority": "normal",
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "items": [
+                        {
+                            "subject": "Order issue",
+                            "body": "Where is my order #1234?",
+                            "from_email": "customer@example.com",
+                        },
+                        {
+                            "subject": "Return request",
+                            "body": "I want to return item ABC",
+                            "from_email": "other@example.com",
+                        },
+                    ],
+                    "priority": "normal",
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class BatchJobResponse(BaseModel):
@@ -77,17 +89,21 @@ class BatchJobResponse(BaseModel):
     completed_at: datetime | None = None
     error: str | None = None
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "job_id": "550e8400-e29b-41d4-a716-446655440000",
-            "tenant_id": "tenant-001",
-            "status": "queued",
-            "job_type": "email_batch",
-            "total_items": 100,
-            "progress": 0.0,
-            "created_at": "2024-01-15T10:30:00Z",
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "tenant_id": "tenant-001",
+                    "status": "queued",
+                    "job_type": "email_batch",
+                    "total_items": 100,
+                    "progress": 0.0,
+                    "created_at": "2024-01-15T10:30:00Z",
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class BatchResultItem(BaseModel):

@@ -34,6 +34,7 @@ class MetricsRegistry:
 
         try:
             from opentelemetry import metrics
+
             self._meter = metrics.get_meter(meter_name)
             self._create_instruments()
             logger.info("Metrics registry initialized")
@@ -164,9 +165,7 @@ class MetricsRegistry:
         }
 
         if "intent_resolution_duration" in self._instruments:
-            self._instruments["intent_resolution_duration"].record(
-                duration_seconds, labels
-            )
+            self._instruments["intent_resolution_duration"].record(duration_seconds, labels)
 
         if "intent_resolution_total" in self._instruments:
             self._instruments["intent_resolution_total"].add(1, labels)
@@ -253,9 +252,7 @@ class MetricsRegistry:
             tenant_id: Tenant ID.
         """
         if "rate_limit_exceeded" in self._instruments:
-            self._instruments["rate_limit_exceeded"].add(
-                1, {"tenant_id": tenant_id}
-            )
+            self._instruments["rate_limit_exceeded"].add(1, {"tenant_id": tenant_id})
 
     def record_websocket_connection(
         self,

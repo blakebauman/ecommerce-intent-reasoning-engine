@@ -1,7 +1,6 @@
 """Tests for email channel adapter."""
 
 import pytest
-from datetime import datetime
 
 from intent_engine.ingestion.email import EmailAdapter
 from intent_engine.models.request import InputChannel

@@ -1,6 +1,6 @@
 """Models for the orchestration agent."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -34,6 +34,11 @@ class ActionType(StrEnum):
     REQUEST_ORDER_ID = "request_order_id"
     REQUEST_CLARIFICATION = "request_clarification"
 
+    # Loyalty and shipping (post-purchase extensions)
+    PROVIDE_POINTS_BALANCE = "provide_points_balance"
+    PROVIDE_MEMBER_STATUS = "provide_member_status"
+    PROVIDE_SHIPPING_OPTIONS = "provide_shipping_options"
+
     # No action needed
     NONE = "none"
 
@@ -53,24 +58,32 @@ class CustomerMessage(BaseModel):
 
     message_id: str = Field(description="Unique message identifier")
     conversation_id: str | None = Field(default=None, description="Conversation thread ID")
-    customer_email: str | None = Field(default=None, description="Customer email for context lookup")
+    customer_email: str | None = Field(
+        default=None, description="Customer email for context lookup"
+    )
     customer_id: str | None = Field(default=None, description="Customer ID if known")
     text: str = Field(description="The customer's message text")
     channel: str = Field(default="chat", description="Input channel (chat, email, etc.)")
-    platform: str | None = Field(default=None, description="Platform to use (shopify, adobe_commerce)")
+    platform: str | None = Field(
+        default=None, description="Platform to use (shopify, adobe_commerce)"
+    )
     order_ids: list[str] = Field(default_factory=list, description="Known order IDs for context")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "message_id": "msg-123",
-            "conversation_id": "conv-456",
-            "customer_email": "john@example.com",
-            "text": "Where is my order #12345?",
-            "channel": "chat",
-            "platform": "shopify",
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "message_id": "msg-123",
+                    "conversation_id": "conv-456",
+                    "customer_email": "john@example.com",
+                    "text": "Where is my order #12345?",
+                    "channel": "chat",
+                    "platform": "shopify",
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class ConversationContext(BaseModel):
@@ -91,7 +104,7 @@ class ConversationContext(BaseModel):
     message_count: int = 0
 
     # Timestamps
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_message_at: datetime | None = None
 
 
@@ -124,11 +137,20 @@ class AgentResponse(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     processing_time_ms: int = 0
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "message_id": "msg-123",
-            "response_text": "Your order #12345 is currently in transit and expected to arrive by Friday.",
-            "actions": [{"action_type": "provide_order_status", "description": "Provided order status"}],
-            "confidence": 0.92,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "message_id": "msg-123",
+                    "response_text": "Your order #12345 is currently in transit and expected to arrive by Friday.",
+                    "actions": [
+                        {
+                            "action_type": "provide_order_status",
+                            "description": "Provided order status",
+                        }
+                    ],
+                    "confidence": 0.92,
+                }
+            ]
         }
-    ]}}
+    }

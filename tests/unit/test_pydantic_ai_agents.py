@@ -4,18 +4,14 @@ NOTE: Uses direct module imports to avoid triggering spaCy imports via __init__.
 which is incompatible with Python 3.14.
 """
 
-import sys
 import importlib.util
+import sys
 
 import pytest
-
 from pydantic_ai.models.test import TestModel
 
 # Direct import from llm/client.py to avoid spaCy import chain
-_spec = importlib.util.spec_from_file_location(
-    "client",
-    "src/intent_engine/llm/client.py"
-)
+_spec = importlib.util.spec_from_file_location("client", "src/intent_engine/llm/client.py")
 _client_module = importlib.util.module_from_spec(_spec)
 sys.modules["intent_engine.llm.client"] = _client_module
 _spec.loader.exec_module(_client_module)
@@ -27,8 +23,7 @@ get_intent_agent = _client_module.get_intent_agent
 
 # Direct import from agents/response_generator.py
 _spec2 = importlib.util.spec_from_file_location(
-    "response_generator",
-    "src/intent_engine/agents/response_generator.py"
+    "response_generator", "src/intent_engine/agents/response_generator.py"
 )
 _response_module = importlib.util.module_from_spec(_spec2)
 sys.modules["intent_engine.agents.response_generator"] = _response_module
@@ -191,7 +186,9 @@ class TestResponseAgent:
         assert agent is not None
 
     @pytest.mark.asyncio
-    async def test_response_generation_with_test_model(self, response_agent_with_test_model) -> None:
+    async def test_response_generation_with_test_model(
+        self, response_agent_with_test_model
+    ) -> None:
         """Test response generation with TestModel."""
         agent = response_agent_with_test_model
 
@@ -206,7 +203,13 @@ class TestResponseAgent:
 
         assert isinstance(result.output, GeneratedResponse)
         assert isinstance(result.output.text, str)
-        assert result.output.tone in ["empathetic", "helpful", "apologetic", "informative", "urgent"]
+        assert result.output.tone in [
+            "empathetic",
+            "helpful",
+            "apologetic",
+            "informative",
+            "urgent",
+        ]
         assert isinstance(result.output.suggested_actions, list)
         assert isinstance(result.output.requires_followup, bool)
 
@@ -247,7 +250,13 @@ class TestResponseAgent:
 
         assert isinstance(result.output, GeneratedResponse)
         # TestModel generates valid enum values, so tone should be valid
-        assert result.output.tone in ["empathetic", "helpful", "apologetic", "informative", "urgent"]
+        assert result.output.tone in [
+            "empathetic",
+            "helpful",
+            "apologetic",
+            "informative",
+            "urgent",
+        ]
 
 
 class TestResponseContext:
@@ -291,6 +300,7 @@ class TestIntentContextTools:
 
     def test_context_supports_order_lookup(self) -> None:
         """Test that IntentContext can hold order lookup callback."""
+
         async def mock_lookup(order_id: str) -> dict | None:
             return {"order_id": order_id, "status": "shipped"}
 
@@ -305,6 +315,7 @@ class TestIntentContextTools:
 
     def test_context_supports_return_eligibility(self) -> None:
         """Test that IntentContext can hold return eligibility callback."""
+
         async def mock_check(order_id: str) -> dict | None:
             return {"order_id": order_id, "eligible": True, "days_remaining": 15}
 

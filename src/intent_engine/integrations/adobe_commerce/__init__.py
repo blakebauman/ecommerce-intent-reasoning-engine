@@ -5,11 +5,15 @@ from intent_engine.integrations.adobe_commerce.auth import (
     IMSOAuthAuth,
     IntegrationTokenAuth,
 )
+from intent_engine.integrations.adobe_commerce.catalog import (
+    AdobeCommerceOptimizerCatalogProvider,
+)
 from intent_engine.integrations.adobe_commerce.connector import AdobeCommerceConnector
 from intent_engine.integrations.adobe_commerce.webhooks import AdobeCommerceWebhookHandler
 
 __all__ = [
     "AdobeCommerceConnector",
+    "AdobeCommerceOptimizerCatalogProvider",
     "AdobeCommerceAuthStrategy",
     "IntegrationTokenAuth",
     "IMSOAuthAuth",

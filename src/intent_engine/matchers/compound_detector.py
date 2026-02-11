@@ -87,9 +87,7 @@ class CompoundDetector:
         self._conjunction_patterns = [
             re.compile(p, re.IGNORECASE) for p in self.COMPOUND_CONJUNCTIONS
         ]
-        self._action_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.ACTION_VERBS
-        ]
+        self._action_patterns = [re.compile(p, re.IGNORECASE) for p in self.ACTION_VERBS]
         self._nlp: Language | None = None
         self._spacy_model = spacy_model
 
@@ -137,8 +135,7 @@ class CompoundDetector:
         else:
             # Weighted signal combination by type to reduce false positives
             weighted_sum = sum(
-                s.confidence * self.SIGNAL_WEIGHTS.get(s.signal_type, 0.7)
-                for s in signals
+                s.confidence * self.SIGNAL_WEIGHTS.get(s.signal_type, 0.7) for s in signals
             )
             confidence = min(1.0, weighted_sum / len(signals))
 
@@ -181,9 +178,7 @@ class CompoundDetector:
         # Filter empty segments and very short ones (likely artifacts)
         return [s for s in segments if s and len(s) > 3]
 
-    def _detect_multi_action_sentences(
-        self, sentences: list[str]
-    ) -> list[CompoundSignal]:
+    def _detect_multi_action_sentences(self, sentences: list[str]) -> list[CompoundSignal]:
         """Detect multiple sentences with different action verbs."""
         signals: list[CompoundSignal] = []
 
@@ -217,9 +212,7 @@ class CompoundDetector:
 
         return signals
 
-    def _detect_category_mix(
-        self, top_matches: list[MatchResult]
-    ) -> list[CompoundSignal]:
+    def _detect_category_mix(self, top_matches: list[MatchResult]) -> list[CompoundSignal]:
         """Detect mixing of intent categories in top matches."""
         signals: list[CompoundSignal] = []
 
@@ -266,8 +259,4 @@ class CompoundDetector:
             return [top_matches[0].intent_code] if top_matches else []
 
         # For compound, return top matches with decent similarity
-        return [
-            m.intent_code
-            for m in top_matches[:3]
-            if m.similarity >= 0.50
-        ]
+        return [m.intent_code for m in top_matches[:3] if m.similarity >= 0.50]

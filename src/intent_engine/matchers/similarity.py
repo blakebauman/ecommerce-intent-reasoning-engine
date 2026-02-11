@@ -7,7 +7,7 @@ from intent_engine.extractors.embedding import EmbeddingExtractor
 from intent_engine.models.entity import EntityType, ExtractedEntity
 from intent_engine.models.intent import IntentConfidence, ResolvedIntent
 from intent_engine.models.response import MatchResult
-from intent_engine.storage.vector_store import SimilarityMatch, VectorStore
+from intent_engine.storage.vector_store import VectorStore
 
 # Mapping of intent codes to expected entity types for confidence boosting
 INTENT_EXPECTED_ENTITIES: dict[str, set[EntityType]] = {
@@ -16,12 +16,22 @@ INTENT_EXPECTED_ENTITIES: dict[str, set[EntityType]] = {
     "ORDER_STATUS.TRACKING_ISSUE": {EntityType.TRACKING_NUMBER, EntityType.ORDER_ID},
     "ORDER_MODIFY.CANCEL_ORDER": {EntityType.ORDER_ID},
     "ORDER_MODIFY.CHANGE_ADDRESS": {EntityType.ORDER_ID, EntityType.ADDRESS},
-    "ORDER_MODIFY.CHANGE_ITEMS": {EntityType.ORDER_ID, EntityType.PRODUCT_SKU, EntityType.SIZE, EntityType.COLOR},
+    "ORDER_MODIFY.CHANGE_ITEMS": {
+        EntityType.ORDER_ID,
+        EntityType.PRODUCT_SKU,
+        EntityType.SIZE,
+        EntityType.COLOR,
+    },
     "RETURN_EXCHANGE.RETURN_INITIATE": {EntityType.ORDER_ID, EntityType.REASON},
     "RETURN_EXCHANGE.EXCHANGE_REQUEST": {EntityType.ORDER_ID, EntityType.SIZE, EntityType.COLOR},
     "RETURN_EXCHANGE.REFUND_STATUS": {EntityType.ORDER_ID, EntityType.MONEY_AMOUNT},
     "COMPLAINT.DAMAGED_ITEM": {EntityType.ORDER_ID, EntityType.REASON},
-    "COMPLAINT.WRONG_ITEM": {EntityType.ORDER_ID, EntityType.PRODUCT_SKU, EntityType.COLOR, EntityType.SIZE},
+    "COMPLAINT.WRONG_ITEM": {
+        EntityType.ORDER_ID,
+        EntityType.PRODUCT_SKU,
+        EntityType.COLOR,
+        EntityType.SIZE,
+    },
     "COMPLAINT.MISSING_ITEM": {EntityType.ORDER_ID, EntityType.PRODUCT_SKU},
     "PRODUCT_INQUIRY.STOCK": {EntityType.PRODUCT_SKU, EntityType.SIZE, EntityType.COLOR},
     "PRODUCT_INQUIRY.COMPATIBILITY": {EntityType.PRODUCT_SKU},

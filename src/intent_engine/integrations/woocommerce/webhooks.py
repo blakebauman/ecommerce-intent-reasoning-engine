@@ -100,7 +100,7 @@ class WooCommerceWebhookHandler:
     async def handle_event(
         self,
         topic: str,
-        payload: dict,
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Handle a webhook event.
@@ -130,7 +130,7 @@ class WooCommerceWebhookHandler:
     async def handle_order_event(
         self,
         topic: str,
-        payload: dict,
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Handle order created/updated events.
@@ -160,11 +160,13 @@ class WooCommerceWebhookHandler:
                 items = meta.get("value", [])
                 if isinstance(items, list):
                     for item in items:
-                        tracking_items.append({
-                            "carrier": get_carrier_name(item.get("tracking_provider", "")),
-                            "tracking_number": item.get("tracking_number", ""),
-                            "tracking_link": item.get("tracking_link", ""),
-                        })
+                        tracking_items.append(
+                            {
+                                "carrier": get_carrier_name(item.get("tracking_provider", "")),
+                                "tracking_number": item.get("tracking_number", ""),
+                                "tracking_link": item.get("tracking_link", ""),
+                            }
+                        )
 
         has_tracking = len(tracking_items) > 0
         status = map_order_status(wc_status, has_tracking=has_tracking)
@@ -207,7 +209,9 @@ class WooCommerceWebhookHandler:
 
         return result
 
-    async def handle_delete_event(self, payload: dict) -> dict[str, Any]:
+    async def handle_delete_event(
+        self, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle order deletion events.
 

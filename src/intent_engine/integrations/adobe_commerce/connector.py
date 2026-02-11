@@ -1,6 +1,6 @@
 """Adobe Commerce (Magento) REST API connector."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -203,9 +203,11 @@ class AdobeCommerceConnector(PlatformConnector):
         # Clean the order number (remove # prefix if present)
         clean_number = order_number.lstrip("#")
 
-        params = self._build_search_criteria([
-            {"field": "increment_id", "value": clean_number, "condition_type": "eq"},
-        ])
+        params = self._build_search_criteria(
+            [
+                {"field": "increment_id", "value": clean_number, "condition_type": "eq"},
+            ]
+        )
 
         data = await self._request("GET", "/orders", params=params)
         if not data or not isinstance(data, dict):
@@ -282,9 +284,11 @@ class AdobeCommerceConnector(PlatformConnector):
         Returns:
             List of shipment data dictionaries.
         """
-        params = self._build_search_criteria([
-            {"field": "order_id", "value": order_id, "condition_type": "eq"},
-        ])
+        params = self._build_search_criteria(
+            [
+                {"field": "order_id", "value": order_id, "condition_type": "eq"},
+            ]
+        )
 
         data = await self._request("GET", "/shipments", params=params)
         if not data or not isinstance(data, dict):
@@ -328,7 +332,7 @@ class AdobeCommerceConnector(PlatformConnector):
         try:
             data = await self._request("GET", "/store/storeConfigs")
             return data is not None and isinstance(data, list) and len(data) > 0
-        except Exception:
+        except (httpx.HTTPError, OSError):
             return False
 
     def _parse_order(
@@ -406,7 +410,7 @@ class AdobeCommerceConnector(PlatformConnector):
             tracking=tracking,
             created_at=created_at,
             updated_at=updated_at,
-            is_returnable=return_window_ends is not None and return_window_ends > datetime.now(timezone.utc),
+            is_returnable=return_window_ends is not None and return_window_ends > datetime.now(UTC),
             return_window_ends=return_window_ends,
             refund_amount=refund_amount,
             raw_data=order_data,
@@ -455,7 +459,7 @@ class AdobeCommerceConnector(PlatformConnector):
             # Parse and make timezone-aware (assume UTC if no timezone)
             dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             return dt
         except ValueError:
             return None
@@ -475,9 +479,11 @@ class AdobeCommerceConnector(PlatformConnector):
             CustomerProfile if found, None otherwise.
         """
         # URL-encode the email for the search
-        params = self._build_search_criteria([
-            {"field": "email", "value": email, "condition_type": "eq"},
-        ])
+        params = self._build_search_criteria(
+            [
+                {"field": "email", "value": email, "condition_type": "eq"},
+            ]
+        )
 
         data = await self._request("GET", "/customers/search", params=params)
         if not data or not isinstance(data, dict):
@@ -607,7 +613,7 @@ class AdobeCommerceConnector(PlatformConnector):
 
     def _build_order_context(self, order_info: OrderInfo) -> OrderContext:
         """Build OrderContext from OrderInfo."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Build product contexts
         items = [

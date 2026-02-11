@@ -1,12 +1,11 @@
 """BigCommerce REST API connector (read-only) with customer profile support."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 
 from intent_engine.integrations.base import (
-    FulfillmentStatus,
     LineItem,
     OrderInfo,
     OrderStatus,
@@ -248,7 +247,7 @@ class BigCommerceConnector(PlatformConnector):
             # Store info endpoint
             data = await self._request_v2("GET", "/store")
             return data is not None
-        except Exception:
+        except (httpx.HTTPError, OSError):
             return False
 
     def _parse_order(
@@ -323,10 +322,7 @@ class BigCommerceConnector(PlatformConnector):
 
         # Map BigCommerce status to our status enum
         status_id = order_data.get("status_id", 1)
-        items_shipped = sum(
-            int(item.get("quantity_shipped", 0))
-            for item in products
-        )
+        items_shipped = sum(int(item.get("quantity_shipped", 0)) for item in products)
         total_items = sum(int(item.get("quantity", 1)) for item in products)
 
         status = map_order_status(
@@ -375,7 +371,7 @@ class BigCommerceConnector(PlatformConnector):
             updated_at=updated_at,
             shipped_at=shipped_at,
             delivered_at=None,  # BigCommerce doesn't track delivery
-            is_returnable=return_window_ends is not None and return_window_ends > datetime.now(timezone.utc),
+            is_returnable=return_window_ends is not None and return_window_ends > datetime.now(UTC),
             return_window_ends=return_window_ends,
             refund_amount=refund_amount if refund_amount > 0 else None,
             raw_data=order_data,
@@ -389,17 +385,18 @@ class BigCommerceConnector(PlatformConnector):
             # BigCommerce uses RFC 2822 format
             # Example: "Tue, 20 Nov 2024 18:15:30 +0000"
             from email.utils import parsedate_to_datetime
+
             dt = parsedate_to_datetime(dt_str)
             # Ensure timezone-aware (assume UTC if naive)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             return dt
         except (ValueError, TypeError):
             try:
                 # Fallback to ISO 8601
                 dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
                 if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
+                    dt = dt.replace(tzinfo=UTC)
                 return dt
             except ValueError:
                 return None
@@ -446,7 +443,7 @@ class BigCommerceConnector(PlatformConnector):
         """
         data = await self._request_v3(
             "GET",
-            f"/customers",
+            "/customers",
             params={"id:in": customer_id, "include": "addresses"},
         )
 
@@ -565,7 +562,7 @@ class BigCommerceConnector(PlatformConnector):
 
     def _build_order_context(self, order_info: OrderInfo) -> OrderContext:
         """Build OrderContext from OrderInfo."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Build product contexts
         items = [

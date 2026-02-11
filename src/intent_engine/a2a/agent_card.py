@@ -33,14 +33,10 @@ class AgentCard(BaseModel):
     name: str = Field(description="Unique agent identifier")
     description: str = Field(description="Human-readable description")
     version: str = Field(description="Semantic version")
-    capabilities: list[str] = Field(
-        description="High-level capability tags for filtering"
-    )
+    capabilities: list[str] = Field(description="High-level capability tags for filtering")
     actions: list[AgentAction] = Field(description="Available actions")
     url: str | None = Field(default=None, description="Base URL for A2A endpoints")
-    documentation_url: str | None = Field(
-        default=None, description="Link to documentation"
-    )
+    documentation_url: str | None = Field(default=None, description="Link to documentation")
 
 
 def get_agent_card(base_url: str | None = None) -> AgentCard:
@@ -66,6 +62,8 @@ def get_agent_card(base_url: str | None = None) -> AgentCard:
             "entity-extraction",
             "ecommerce",
             "customer-support",
+            "product-catalog",
+            "pre-purchase",
         ],
         url=base_url,
         documentation_url="https://github.com/orderloop/intent-engine",
@@ -184,6 +182,88 @@ def get_agent_card(base_url: str | None = None) -> AgentCard:
                         },
                     },
                     required=["intent_count", "intents"],
+                ),
+            ),
+            AgentAction(
+                name="search_catalog",
+                description="Search the product catalog by query and optional category. Returns product summaries.",
+                input_schema=ActionSchema(
+                    type="object",
+                    properties={
+                        "query": {"type": "string", "description": "Search query"},
+                        "category": {"type": "string", "description": "Optional category filter"},
+                        "limit": {"type": "integer", "description": "Max results (default 20)"},
+                    },
+                    required=["query"],
+                ),
+                output_schema=ActionSchema(
+                    type="object",
+                    properties={
+                        "products": {"type": "array", "description": "List of product summaries"},
+                        "total_found": {"type": "integer", "description": "Number of products found"},
+                    },
+                    required=["products", "total_found"],
+                ),
+            ),
+            AgentAction(
+                name="get_product_details",
+                description="Get full details for a single product by product_id or SKU.",
+                input_schema=ActionSchema(
+                    type="object",
+                    properties={
+                        "product_id": {"type": "string", "description": "Platform product ID"},
+                        "sku": {"type": "string", "description": "Product or variant SKU"},
+                    },
+                    required=[],
+                ),
+                output_schema=ActionSchema(
+                    type="object",
+                    properties={
+                        "product": {"type": "object", "description": "Product details or null if not found"},
+                    },
+                    required=["product"],
+                ),
+            ),
+            AgentAction(
+                name="get_inventory",
+                description="Check inventory for a product or variant by product_id or SKU.",
+                input_schema=ActionSchema(
+                    type="object",
+                    properties={
+                        "product_id": {"type": "string", "description": "Platform product ID"},
+                        "sku": {"type": "string", "description": "Product or variant SKU"},
+                    },
+                    required=[],
+                ),
+                output_schema=ActionSchema(
+                    type="object",
+                    properties={
+                        "inventory": {"type": "object", "description": "Inventory info or null if not found"},
+                    },
+                    required=["inventory"],
+                ),
+            ),
+            AgentAction(
+                name="pre_purchase_chat",
+                description=(
+                    "Handle a pre-purchase message (product search, recommendations, discovery). "
+                    "Returns a customer-facing response and optional product list."
+                ),
+                input_schema=ActionSchema(
+                    type="object",
+                    properties={
+                        "raw_text": {"type": "string", "description": "The customer message"},
+                    },
+                    required=["raw_text"],
+                ),
+                output_schema=ActionSchema(
+                    type="object",
+                    properties={
+                        "response_text": {"type": "string", "description": "Customer-facing reply"},
+                        "products": {"type": "array", "description": "Product summaries if applicable"},
+                        "primary_intent": {"type": "string", "description": "Resolved intent code"},
+                    },
+                    required=["response_text"],
                 ),
             ),
         ],

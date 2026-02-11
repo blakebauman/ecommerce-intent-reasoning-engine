@@ -2,7 +2,7 @@
 
 import hashlib
 import hmac
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -178,7 +178,7 @@ class TestIMSOAuthAuth:
 
         # Manually set a valid token
         auth._access_token = "cached-token"
-        auth._token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        auth._token_expires_at = datetime.now(UTC) + timedelta(hours=1)
 
         headers = await auth.get_auth_headers()
         assert headers["Authorization"] == "Bearer cached-token"

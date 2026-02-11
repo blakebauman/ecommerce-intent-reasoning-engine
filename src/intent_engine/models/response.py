@@ -1,7 +1,5 @@
 """Response models for the intent engine."""
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from intent_engine.models.entity import ExtractedEntity
@@ -97,34 +95,38 @@ class ReasoningResult(BaseModel):
     processing_time_ms: int = 0
     path_taken: str = "fast_path"  # "fast_path" or "reasoning_path"
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "request_id": "req-12345",
-            "resolved_intents": [
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
                 {
-                    "category": "ORDER_STATUS",
-                    "intent": "WISMO",
-                    "confidence": 0.92,
-                    "confidence_tier": "high",
-                    "evidence": ["where is my order"],
+                    "request_id": "req-12345",
+                    "resolved_intents": [
+                        {
+                            "category": "ORDER_STATUS",
+                            "intent": "WISMO",
+                            "confidence": 0.92,
+                            "confidence_tier": "high",
+                            "evidence": ["where is my order"],
+                        }
+                    ],
+                    "is_compound": False,
+                    "entities": [
+                        {
+                            "entity_type": "order_id",
+                            "value": "ORD-98765",
+                            "raw_span": "#ORD-98765",
+                            "start_pos": 18,
+                            "end_pos": 28,
+                            "confidence": 0.99,
+                        }
+                    ],
+                    "constraints": [],
+                    "confidence_summary": 0.92,
+                    "requires_human": False,
+                    "reasoning_trace": ["Fast path match: WISMO (0.92 similarity)"],
+                    "processing_time_ms": 45,
+                    "path_taken": "fast_path",
                 }
-            ],
-            "is_compound": False,
-            "entities": [
-                {
-                    "entity_type": "order_id",
-                    "value": "ORD-98765",
-                    "raw_span": "#ORD-98765",
-                    "start_pos": 18,
-                    "end_pos": 28,
-                    "confidence": 0.99,
-                }
-            ],
-            "constraints": [],
-            "confidence_summary": 0.92,
-            "requires_human": False,
-            "reasoning_trace": ["Fast path match: WISMO (0.92 similarity)"],
-            "processing_time_ms": 45,
-            "path_taken": "fast_path",
+            ]
         }
-    ]}}
+    }

@@ -64,16 +64,20 @@ class ExtractedEntity(BaseModel):
     end_pos: int
     confidence: float = Field(ge=0.0, le=1.0)
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "entity_type": "order_id",
-            "value": "ORD-98765",
-            "raw_span": "#ORD-98765",
-            "start_pos": 18,
-            "end_pos": 28,
-            "confidence": 0.99,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "entity_type": "order_id",
+                    "value": "ORD-98765",
+                    "raw_span": "#ORD-98765",
+                    "start_pos": 18,
+                    "end_pos": 28,
+                    "confidence": 0.99,
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class ExtractionResult(BaseModel):

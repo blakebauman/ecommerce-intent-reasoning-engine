@@ -111,7 +111,7 @@ class OrderInfo:
     refund_amount: float | None = None
 
     # Raw platform data for debugging
-    raw_data: dict | None = None
+    raw_data: dict[str, object] | None = None
 
 
 class PlatformConnector(ABC):
@@ -193,3 +193,112 @@ class PlatformConnector(ABC):
             True if connection is working.
         """
         return True
+
+
+# ---------------------------------------------------------------------------
+# Catalog provider (optional; for product search and discovery)
+# ---------------------------------------------------------------------------
+
+from intent_engine.models.catalog import (
+    CatalogCategory,
+    CatalogProduct,
+    InventoryInfo,
+)
+
+
+class CatalogProvider(ABC):
+    """
+    Optional abstract interface for product catalog access.
+
+    Implementations provide search, product details, and inventory
+    for pre-purchase and product-inquiry flows.
+    """
+
+    @property
+    @abstractmethod
+    def platform_name(self) -> str:
+        """Return the platform name (e.g., 'shopify')."""
+        ...
+
+    @abstractmethod
+    async def search_products(
+        self,
+        query: str,
+        *,
+        category: str | None = None,
+        limit: int = 20,
+    ) -> list[CatalogProduct]:
+        """
+        Search products by text query and optional category filter.
+
+        Args:
+            query: Search query (title, description, etc.).
+            category: Optional category/product type to filter by.
+            limit: Maximum number of products to return.
+
+        Returns:
+            List of CatalogProduct, ordered by relevance.
+        """
+        ...
+
+    @abstractmethod
+    async def get_product(self, product_id: str | None = None, sku: str | None = None) -> CatalogProduct | None:
+        """
+        Fetch a single product by ID or SKU.
+
+        Args:
+            product_id: Platform product ID.
+            sku: Product or variant SKU (one of product_id or sku must be provided).
+
+        Returns:
+            CatalogProduct if found, None otherwise.
+        """
+        ...
+
+    @abstractmethod
+    async def get_inventory(
+        self,
+        product_id: str | None = None,
+        sku: str | None = None,
+    ) -> InventoryInfo | None:
+        """
+        Get inventory for a product or variant.
+
+        Args:
+            product_id: Platform product ID.
+            sku: Product or variant SKU.
+
+        Returns:
+            InventoryInfo if found, None otherwise.
+        """
+        ...
+
+    async def get_categories(self) -> list[CatalogCategory]:
+        """
+        List available categories/collections for discovery.
+
+        Returns:
+            List of CatalogCategory. Default implementation returns empty list.
+        """
+        return []
+
+    async def get_products_by_category(
+        self,
+        category_id: str | None = None,
+        category_name: str | None = None,
+        limit: int = 20,
+    ) -> list[CatalogProduct]:
+        """
+        Get products in a category (by ID or name).
+
+        Args:
+            category_id: Platform category/collection ID.
+            category_name: Category name or product type (used if category_id not set).
+            limit: Maximum number of products.
+
+        Returns:
+            List of CatalogProduct. Default uses search with category filter.
+        """
+        if category_name:
+            return await self.search_products("", category=category_name, limit=limit)
+        return []

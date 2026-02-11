@@ -3,12 +3,14 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from intent_engine.agents.catalog_agent import get_catalog_provider_from_settings
+from intent_engine.agents.pre_purchase_agent import PrePurchaseDeps, get_pre_purchase_agent
 from intent_engine.engine import IntentEngine
 from intent_engine.models.request import InputChannel, IntentRequest
 from intent_engine.storage.intent_catalog import IntentCatalogStore
@@ -35,7 +37,7 @@ class A2ATask(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     result: dict[str, Any] | None = None
     error: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
 
 
@@ -109,23 +111,31 @@ class A2ATaskHandler:
                 result = await self._execute_classify_fast(task.input)
             elif task.action == "list_intent_taxonomy":
                 result = await self._execute_list_taxonomy(task.input)
+            elif task.action == "search_catalog":
+                result = await self._execute_search_catalog(task.input)
+            elif task.action == "get_product_details":
+                result = await self._execute_get_product_details(task.input)
+            elif task.action == "get_inventory":
+                result = await self._execute_get_inventory(task.input)
+            elif task.action == "pre_purchase_chat":
+                result = await self._execute_pre_purchase_chat(task.input)
             else:
                 raise ValueError(f"Unknown action: {task.action}")
 
             task.result = result
             task.status = TaskStatus.COMPLETED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
 
         except asyncio.CancelledError:
             task.status = TaskStatus.CANCELLED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
             raise
 
         except Exception as e:
             logger.exception(f"Task {task_id} failed")
             task.error = str(e)
             task.status = TaskStatus.FAILED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
 
         finally:
             # Clean up running task reference
@@ -225,6 +235,101 @@ class A2ATaskHandler:
             "categories": list(set(i["category"] for i in intents)),
         }
 
+    def _get_catalog_provider(self):
+        """Lazy-load catalog provider from settings."""
+        catalog = get_catalog_provider_from_settings()
+        if catalog is None:
+            raise ValueError("Catalog provider not configured (e.g. set Shopify credentials)")
+        return catalog
+
+    async def _execute_search_catalog(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute search_catalog action."""
+        query = input_data.get("query", "").strip()
+        if not query:
+            raise ValueError("query is required")
+        catalog = self._get_catalog_provider()
+        products = await catalog.search_products(
+            query,
+            category=input_data.get("category"),
+            limit=int(input_data.get("limit", 20)),
+        )
+        return {
+            "products": [
+                {
+                    "product_id": p.product_id,
+                    "name": p.name,
+                    "category": p.category,
+                    "sku": p.sku,
+                    "price": p.price,
+                    "currency": p.currency,
+                    "is_in_stock": p.is_in_stock,
+                }
+                for p in products
+            ],
+            "total_found": len(products),
+        }
+
+    async def _execute_get_product_details(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute get_product_details action."""
+        product_id = input_data.get("product_id")
+        sku = input_data.get("sku")
+        if not product_id and not sku:
+            raise ValueError("product_id or sku is required")
+        catalog = self._get_catalog_provider()
+        product = await catalog.get_product(product_id=product_id, sku=sku)
+        if product is None:
+            return {"product": None}
+        return {
+            "product": {
+                "product_id": product.product_id,
+                "name": product.name,
+                "description_plain": product.description_plain,
+                "category": product.category,
+                "sku": product.sku,
+                "price": product.price,
+                "currency": product.currency,
+                "is_in_stock": product.is_in_stock,
+                "inventory_quantity": product.inventory_quantity,
+                "image_url": product.image_url,
+            }
+        }
+
+    async def _execute_get_inventory(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute get_inventory action."""
+        product_id = input_data.get("product_id")
+        sku = input_data.get("sku")
+        if not product_id and not sku:
+            raise ValueError("product_id or sku is required")
+        catalog = self._get_catalog_provider()
+        inv = await catalog.get_inventory(product_id=product_id, sku=sku)
+        if inv is None:
+            return {"inventory": None}
+        return {
+            "inventory": {
+                "product_id": inv.product_id,
+                "variant_id": inv.variant_id,
+                "sku": inv.sku,
+                "quantity_available": inv.quantity_available,
+                "is_in_stock": inv.is_in_stock,
+            }
+        }
+
+    async def _execute_pre_purchase_chat(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute pre_purchase_chat action."""
+        raw_text = input_data.get("raw_text", "").strip()
+        if not raw_text:
+            raise ValueError("raw_text is required")
+        catalog = get_catalog_provider_from_settings()
+        deps = PrePurchaseDeps(intent_engine=self.engine, catalog_provider=catalog)
+        agent = get_pre_purchase_agent()
+        result = await agent.run(raw_text, deps=deps)
+        out = result.output
+        return {
+            "response_text": out.response_text,
+            "products": out.products,
+            "primary_intent": out.primary_intent,
+        }
+
     def get_task(self, task_id: str) -> A2ATask | None:
         """
         Get a task by ID.
@@ -264,7 +369,7 @@ class A2ATaskHandler:
                 pass
 
         task.status = TaskStatus.CANCELLED
-        task.completed_at = datetime.utcnow()
+        task.completed_at = datetime.now(timezone.utc)
         return True
 
     def cleanup_old_tasks(self, max_age_seconds: int = 3600) -> int:
@@ -277,7 +382,7 @@ class A2ATaskHandler:
         Returns:
             Number of tasks removed.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         to_remove = []
 
         for task_id, task in self._tasks.items():

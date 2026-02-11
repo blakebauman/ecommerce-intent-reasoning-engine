@@ -1,14 +1,14 @@
 """Tenant middleware for FastAPI."""
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from intent_engine.tenancy.context import clear_tenant_context, set_tenant_context
 from intent_engine.tenancy.models import TenantConfig, TenantTier
-from intent_engine.tenancy.rate_limiter import RateLimitExceeded, RateLimiter
+from intent_engine.tenancy.rate_limiter import RateLimiter, RateLimitExceeded
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
     Configuration:
     - tenant_lookup: Async function to look up tenant by API key
-    - rate_limiter: Optional RateLimiter instance
+    - rate_limiter: Optional RateLimiter instance (use when available at app creation)
+    - rate_limiter_getter: Optional callable returning RateLimiter | None (use when
+      rate limiter is created in lifespan and not yet available at app creation)
     - exclude_paths: Paths to exclude from tenant authentication
     """
 
@@ -35,6 +37,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         app: Callable,
         tenant_lookup: Callable[[str], TenantConfig | None] | None = None,
         rate_limiter: RateLimiter | None = None,
+        rate_limiter_getter: Callable[[], RateLimiter | None] | None = None,
         exclude_paths: list[str] | None = None,
         dev_mode: bool = False,
         dev_tenant: TenantConfig | None = None,
@@ -46,6 +49,8 @@ class TenantMiddleware(BaseHTTPMiddleware):
             app: The FastAPI application.
             tenant_lookup: Async function to look up tenant by API key.
             rate_limiter: Optional RateLimiter for rate limiting.
+            rate_limiter_getter: Optional callable that returns the RateLimiter
+                (use when limiter is initialized in lifespan).
             exclude_paths: Paths to exclude from authentication.
             dev_mode: If True, use dev tenant for all requests.
             dev_tenant: Tenant config to use in dev mode.
@@ -53,6 +58,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.tenant_lookup = tenant_lookup
         self.rate_limiter = rate_limiter
+        self.rate_limiter_getter = rate_limiter_getter
         self.exclude_paths = exclude_paths or [
             "/health",
             "/metrics",
@@ -95,10 +101,16 @@ class TenantMiddleware(BaseHTTPMiddleware):
             # Set tenant context
             set_tenant_context(tenant)
 
-            # Apply rate limiting
-            if self.rate_limiter:
+            # Resolve rate limiter (from getter if set, e.g. when initialized in lifespan)
+            rate_limiter = (
+                self.rate_limiter_getter() if self.rate_limiter_getter else self.rate_limiter
+            )
+
+            # Apply rate limiting and capture limit/remaining for response headers
+            rate_info: dict | None = None
+            if rate_limiter:
                 try:
-                    await self.rate_limiter.check_rate_limit(
+                    rate_info = await rate_limiter.check_rate_limit(
                         tenant_id=tenant.tenant_id,
                         rate_limit=tenant.get_rate_limit(),
                         burst_size=tenant.get_burst_size(),
@@ -121,6 +133,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
             # Add tenant headers
             response.headers["X-Tenant-Id"] = tenant.tenant_id
             response.headers["X-Tenant-Tier"] = tenant.tier.value
+            # Add rate limit headers when available
+            if rate_info:
+                response.headers["X-RateLimit-Limit"] = str(rate_info.get("limit", ""))
+                response.headers["X-RateLimit-Remaining"] = str(
+                    rate_info.get("remaining", "")
+                )
 
             return response
 

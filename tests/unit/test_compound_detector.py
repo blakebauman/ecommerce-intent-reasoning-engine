@@ -27,9 +27,7 @@ class TestCompoundDetector:
 
     def test_compound_multiple_sentences(self, detector: CompoundDetector) -> None:
         """Test detection of multiple action sentences."""
-        result = detector.detect(
-            "I need to return this item. Also, where is my other order?"
-        )
+        result = detector.detect("I need to return this item. Also, where is my other order?")
         # Should detect multiple segments
         assert len(result.sentence_segments) >= 2
 
@@ -65,9 +63,7 @@ class TestCompoundDetector:
 
     def test_sentence_segmentation(self, detector: CompoundDetector) -> None:
         """Test sentence segmentation."""
-        result = detector.detect(
-            "I want to cancel my order. When will I get a refund?"
-        )
+        result = detector.detect("I want to cancel my order. When will I get a refund?")
         assert len(result.sentence_segments) >= 2
 
 
@@ -77,9 +73,7 @@ class TestCompoundSignals:
     def test_conjunction_detection(self, detector: CompoundDetector) -> None:
         """Test conjunction signal detection."""
         result = detector.detect("Cancel this and also track my other order")
-        conjunction_signals = [
-            s for s in result.signals if s.signal_type == "conjunction"
-        ]
+        conjunction_signals = [s for s in result.signals if s.signal_type == "conjunction"]
         assert len(conjunction_signals) > 0
 
     def test_category_mix_detection(self, detector: CompoundDetector) -> None:

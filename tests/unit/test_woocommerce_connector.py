@@ -1,17 +1,18 @@
 """Unit tests for WooCommerce connector."""
 
-import pytest
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
+import httpx
+import pytest
+
+from intent_engine.integrations.base import FulfillmentStatus, OrderStatus
 from intent_engine.integrations.woocommerce.connector import WooCommerceConnector
 from intent_engine.integrations.woocommerce.mapping import (
-    map_order_status,
-    map_fulfillment_status,
     get_carrier_name,
     get_tracking_url,
+    map_fulfillment_status,
+    map_order_status,
 )
-from intent_engine.integrations.base import OrderStatus, FulfillmentStatus
 
 
 class TestWooCommerceStatusMapping:
@@ -36,9 +37,10 @@ class TestWooCommerceStatusMapping:
 
     def test_map_completed_status_with_delivered(self):
         """Test mapping completed status with delivered tracking."""
-        assert map_order_status(
-            "completed", has_tracking=True, shipment_status="delivered"
-        ) == OrderStatus.DELIVERED
+        assert (
+            map_order_status("completed", has_tracking=True, shipment_status="delivered")
+            == OrderStatus.DELIVERED
+        )
 
     def test_map_cancelled_status(self):
         """Test mapping cancelled status."""
@@ -161,7 +163,7 @@ class TestWooCommerceConnector:
     async def test_health_check_failure(self, connector):
         """Test health check when API fails."""
         with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
-            mock_request.side_effect = Exception("Connection failed")
+            mock_request.side_effect = httpx.RequestError("Connection failed")
             result = await connector.health_check()
             assert result is False
 

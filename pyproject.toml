@@ -74,7 +74,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501", "UP042"]
+ignore = ["E501", "UP042", "UP017"]  # UP017: prefer timezone.utc for Python <3.11 compatibility
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -85,3 +85,17 @@ pythonpath = ["src"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+# Third-party modules without stubs or optional instrumentation
+[[tool.mypy.overrides]]
+module = [
+    "asyncpg",
+    "pgvector.asyncpg",
+    "opentelemetry.exporter.otlp.proto.grpc.trace_exporter",
+    "opentelemetry.exporter.prometheus",
+    "opentelemetry.instrumentation.fastapi",
+    "opentelemetry.instrumentation.redis",
+    "opentelemetry.instrumentation.asyncpg",
+    "dateparser",
+]
+ignore_missing_imports = true

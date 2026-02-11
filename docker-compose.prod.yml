@@ -1,0 +1,26 @@
+# Production override: use with
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# - API runs without --reload and without mounting source (uses image as-built).
+# - Base compose provides DATABASE_URL and REDIS_URL (same stack). For external DB/Redis set in .env.
+# - For multi-tenant set TENANT_STORE_BACKEND=db and seed tenants (migrate_tenants_table.sql, seed_tenant.py).
+# - Provide API_KEY (single-tenant memory store), CORS_ORIGINS, ANTHROPIC_API_KEY via .env.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_DEV: "false"
+    environment:
+      - SERVICE_ENVIRONMENT=production
+      - TENANT_DEV_MODE=false
+      - LOG_LEVEL=INFO
+      - LOG_JSON=true
+      - TENANT_STORE_BACKEND=${TENANT_STORE_BACKEND:-memory}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+    volumes: []   # no source/code mounts; use image contents only
+    command: uvicorn intent_engine.api.server:app --host 0.0.0.0 --port 8000
+    # Optional: multiple workers (uncomment and set workers as needed)
+    # command: uvicorn intent_engine.api.server:app --host 0.0.0.0 --port 8000 --workers 2

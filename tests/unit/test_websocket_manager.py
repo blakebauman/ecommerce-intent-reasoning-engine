@@ -1,18 +1,22 @@
-"""Unit tests for WebSocket connection manager."""
+"""Unit tests for WebSocket connection manager.
+
+Imports are delayed after mocking spacy to avoid import chain issues.
+"""
+# ruff: noqa: E402
+
+import sys
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
-import sys
 
 # Mock spacy before any imports that might trigger it
 sys.modules["spacy"] = MagicMock()
 
 from intent_engine.api.ws_models import (
+    STEP_DESCRIPTIONS,
+    ReasoningStep,
     WSMessage,
     WSMessageType,
-    ReasoningStep,
-    STEP_DESCRIPTIONS,
 )
 from intent_engine.tenancy.models import TenantConfig, TenantTier
 

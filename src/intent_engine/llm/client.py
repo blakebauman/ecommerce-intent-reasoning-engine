@@ -13,9 +13,7 @@ class DecomposedIntent(BaseModel):
     intent_code: str = Field(
         description="The intent code (e.g., ORDER_STATUS.WISMO, RETURN_EXCHANGE.RETURN_INITIATE)"
     )
-    confidence: float = Field(
-        ge=0.0, le=1.0, description="Confidence in this classification (0-1)"
-    )
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in this classification (0-1)")
     evidence: list[str] = Field(
         default_factory=list,
         description="Text spans or phrases that support this classification",
@@ -32,9 +30,7 @@ class DecompositionResult(BaseModel):
     intents: list[DecomposedIntent] = Field(
         description="List of atomic intents found in the message"
     )
-    is_compound: bool = Field(
-        description="True if multiple distinct intents were found"
-    )
+    is_compound: bool = Field(description="True if multiple distinct intents were found")
     requires_clarification: bool = Field(
         default=False,
         description="True if the intent is genuinely unclear and needs user clarification",
@@ -275,8 +271,7 @@ def get_intent_agent(
         if invalid_codes:
             valid_list = ", ".join(sorted(VALID_INTENT_CODES)[:10]) + "..."
             raise ModelRetry(
-                f"Invalid intent code(s): {invalid_codes}. "
-                f"Use only valid codes like: {valid_list}"
+                f"Invalid intent code(s): {invalid_codes}. Use only valid codes like: {valid_list}"
             )
 
         return result
@@ -293,8 +288,7 @@ def get_intent_agent(
 
         if ctx.deps.extracted_entities:
             entity_str = ", ".join(
-                f"{e.get('entity_type')}: {e.get('value')}"
-                for e in ctx.deps.extracted_entities
+                f"{e.get('entity_type')}: {e.get('value')}" for e in ctx.deps.extracted_entities
             )
             context_parts.append(f"Extracted entities: {entity_str}")
 

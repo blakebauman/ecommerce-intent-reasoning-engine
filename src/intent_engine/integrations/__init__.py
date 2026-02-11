@@ -1,17 +1,22 @@
-"""Platform integrations for order data."""
+"""Platform integrations for order data and catalog."""
 
 from intent_engine.integrations.adobe_commerce import (
     AdobeCommerceConnector,
+    AdobeCommerceOptimizerCatalogProvider,
     AdobeCommerceWebhookHandler,
     IMSOAuthAuth,
     IntegrationTokenAuth,
 )
-from intent_engine.integrations.base import OrderInfo, PlatformConnector
+from intent_engine.integrations.base import (
+    CatalogProvider,
+    OrderInfo,
+    PlatformConnector,
+)
 from intent_engine.integrations.bigcommerce import (
     BigCommerceConnector,
     BigCommerceWebhookHandler,
 )
-from intent_engine.integrations.shopify import ShopifyConnector
+from intent_engine.integrations.shopify import ShopifyCatalogProvider, ShopifyConnector
 from intent_engine.integrations.woocommerce import (
     WooCommerceConnector,
     WooCommerceWebhookHandler,
@@ -19,12 +24,15 @@ from intent_engine.integrations.woocommerce import (
 
 __all__ = [
     # Base
+    "CatalogProvider",
     "OrderInfo",
     "PlatformConnector",
     # Shopify
+    "ShopifyCatalogProvider",
     "ShopifyConnector",
     # Adobe Commerce
     "AdobeCommerceConnector",
+    "AdobeCommerceOptimizerCatalogProvider",
     "AdobeCommerceWebhookHandler",
     "IntegrationTokenAuth",
     "IMSOAuthAuth",

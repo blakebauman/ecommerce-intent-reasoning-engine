@@ -50,6 +50,7 @@ def get_queue() -> BatchQueue:
     # Lazy import to avoid circular dependencies
     try:
         from intent_engine.api.server import get_batch_queue
+
         queue = get_batch_queue()
     except ImportError:
         queue = None

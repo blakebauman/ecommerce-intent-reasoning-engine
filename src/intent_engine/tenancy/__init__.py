@@ -7,9 +7,10 @@ from intent_engine.tenancy.context import (
     set_tenant_context,
     tenant_context,
 )
+from intent_engine.tenancy.db_store import DbTenantStore
 from intent_engine.tenancy.middleware import TenantMiddleware
 from intent_engine.tenancy.models import TenantConfig, TenantTier
-from intent_engine.tenancy.rate_limiter import RateLimitExceeded, RateLimiter
+from intent_engine.tenancy.rate_limiter import RateLimiter, RateLimitExceeded
 
 __all__ = [
     # Context
@@ -20,6 +21,8 @@ __all__ = [
     "tenant_context",
     # Middleware
     "TenantMiddleware",
+    # Stores
+    "DbTenantStore",
     # Models
     "TenantConfig",
     "TenantTier",

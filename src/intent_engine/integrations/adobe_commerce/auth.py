@@ -1,7 +1,7 @@
 """Authentication strategies for Adobe Commerce API."""
 
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -118,7 +118,7 @@ class IMSOAuthAuth(AdobeCommerceAuthStrategy):
 
     async def refresh_if_needed(self) -> None:
         """Refresh the access token if expired or about to expire."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if (
             self._access_token
@@ -153,4 +153,4 @@ class IMSOAuthAuth(AdobeCommerceAuthStrategy):
 
         # Calculate expiry (IMS returns expires_in in seconds)
         expires_in = data.get("expires_in", 86400)  # Default 24 hours
-        self._token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        self._token_expires_at = datetime.now(UTC) + timedelta(seconds=expires_in)

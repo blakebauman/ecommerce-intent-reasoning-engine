@@ -1,21 +1,18 @@
 """Unit tests for tenant middleware."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from starlette.testclient import TestClient as StarletteTestClient
 
-from intent_engine.tenancy.middleware import TenantMiddleware, TenantStore
-from intent_engine.tenancy.models import TenantConfig, TenantTier
 from intent_engine.tenancy.context import (
+    clear_tenant_context,
     get_current_tenant,
     get_current_tenant_id,
     set_tenant_context,
-    clear_tenant_context,
     tenant_context,
 )
+from intent_engine.tenancy.middleware import TenantMiddleware, TenantStore
+from intent_engine.tenancy.models import TenantConfig, TenantTier
 
 
 class TestTenantContext:

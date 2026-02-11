@@ -1,7 +1,7 @@
 """WebSocket authentication utilities."""
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Query, WebSocket, WebSocketException, status
 

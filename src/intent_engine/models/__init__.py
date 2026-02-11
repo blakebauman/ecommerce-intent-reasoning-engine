@@ -1,5 +1,10 @@
 """Data models for the intent engine."""
 
+from intent_engine.models.catalog import (
+    CatalogCategory,
+    CatalogProduct,
+    InventoryInfo,
+)
 from intent_engine.models.entity import EntityType, ExtractedEntity, ExtractionResult
 from intent_engine.models.intent import (
     CoreIntent,
@@ -12,6 +17,8 @@ from intent_engine.models.response import Constraint, MatchResult, ReasoningResu
 
 __all__ = [
     "Attachment",
+    "CatalogCategory",
+    "CatalogProduct",
     "Constraint",
     "CoreIntent",
     "EntityType",
@@ -21,6 +28,7 @@ __all__ = [
     "IntentCategory",
     "IntentConfidence",
     "IntentRequest",
+    "InventoryInfo",
     "MatchResult",
     "ReasoningResult",
     "ResolvedIntent",

@@ -98,7 +98,9 @@ class AdobeCommerceWebhookHandler:
         # Use constant-time comparison to prevent timing attacks
         return hmac.compare_digest(expected_signature, signature)
 
-    async def handle_event(self, event: dict) -> dict[str, Any]:
+    async def handle_event(
+        self, event: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle a webhook event.
 
@@ -127,7 +129,9 @@ class AdobeCommerceWebhookHandler:
             logger.warning(f"Unknown webhook event type: {event_type}")
             return {"status": "ignored", "reason": f"Unknown event type: {event_type}"}
 
-    async def handle_order_event(self, data: dict) -> dict[str, Any]:
+    async def handle_order_event(
+        self, data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle order created/updated events.
 
@@ -157,7 +161,9 @@ class AdobeCommerceWebhookHandler:
         logger.info(f"Processed order event: {increment_id} -> {status.value}")
         return result
 
-    async def handle_shipment_event(self, data: dict) -> dict[str, Any]:
+    async def handle_shipment_event(
+        self, data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle shipment created events.
 
@@ -175,11 +181,13 @@ class AdobeCommerceWebhookHandler:
         tracks = shipment.get("tracks", [])
         tracking_info = []
         for track in tracks:
-            tracking_info.append({
-                "carrier": get_carrier_name(track.get("carrier_code", "")),
-                "tracking_number": track.get("track_number", ""),
-                "title": track.get("title", ""),
-            })
+            tracking_info.append(
+                {
+                    "carrier": get_carrier_name(track.get("carrier_code", "")),
+                    "tracking_number": track.get("track_number", ""),
+                    "title": track.get("title", ""),
+                }
+            )
 
         result = {
             "status": "processed",
@@ -195,7 +203,9 @@ class AdobeCommerceWebhookHandler:
         logger.info(f"Processed shipment event for order: {order_id}")
         return result
 
-    async def handle_cancel_event(self, data: dict) -> dict[str, Any]:
+    async def handle_cancel_event(
+        self, data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle order cancellation events.
 
@@ -220,7 +230,9 @@ class AdobeCommerceWebhookHandler:
         logger.info(f"Processed cancellation event for order: {order_id}")
         return result
 
-    async def handle_refund_event(self, data: dict) -> dict[str, Any]:
+    async def handle_refund_event(
+        self, data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle refund/credit memo events.
 

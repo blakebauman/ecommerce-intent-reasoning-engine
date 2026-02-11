@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (needed for some wheels, e.g. numpy/torch)
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -15,8 +15,11 @@ RUN pip install uv
 COPY pyproject.toml .
 COPY README.md .
 
-# Install dependencies
-RUN uv pip install --system -e ".[dev]"
+# Install dependencies: use INSTALL_DEV=false for production (smaller image, no pytest/ruff/mypy)
+ARG INSTALL_DEV=true
+RUN if [ "$INSTALL_DEV" = "false" ]; then \
+    uv pip install --system . ; \
+    else uv pip install --system -e ".[dev]"; fi
 
 # Download spaCy model
 RUN python -m spacy download en_core_web_sm

@@ -1,17 +1,15 @@
 """Integration tests for observability features."""
 
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 import logging
+from unittest.mock import patch
 
-from intent_engine.observability.telemetry import TelemetryConfig, init_telemetry, shutdown_telemetry
-from intent_engine.observability.tracing import (
-    get_tracer,
-    traced,
-    pipeline_span,
-    add_span_attribute,
-    get_current_trace_id,
-    get_current_span_id,
+import pytest
+
+from intent_engine.observability.logging import (
+    StructuredLogFormatter,
+    TenantContextFilter,
+    configure_logging,
+    get_logger,
 )
 from intent_engine.observability.metrics import (
     MetricsRegistry,
@@ -20,11 +18,16 @@ from intent_engine.observability.metrics import (
     record_pipeline_stage,
     record_rate_limit_exceeded,
 )
-from intent_engine.observability.logging import (
-    configure_logging,
-    get_logger,
-    StructuredLogFormatter,
-    TenantContextFilter,
+from intent_engine.observability.telemetry import (
+    TelemetryConfig,
+    init_telemetry,
+)
+from intent_engine.observability.tracing import (
+    add_span_attribute,
+    get_current_trace_id,
+    get_tracer,
+    pipeline_span,
+    traced,
 )
 
 
@@ -57,9 +60,8 @@ class TestTelemetryInitialization:
     def test_init_telemetry_without_otel(self):
         """Test init_telemetry when OpenTelemetry is not installed."""
         with patch.dict("sys.modules", {"opentelemetry": None}):
-            # Should not raise, just return False
-            result = init_telemetry()
-            # May be True or False depending on actual imports
+            # Should not raise; return value may be True or False depending on imports
+            init_telemetry()
 
 
 class TestTracing:
@@ -72,12 +74,13 @@ class TestTracing:
 
     def test_pipeline_span_context_manager(self):
         """Test pipeline_span context manager."""
-        with pipeline_span("test_stage", tenant_id="test-tenant", request_id="req-1") as span:
+        with pipeline_span("test_stage", tenant_id="test-tenant", request_id="req-1"):
             # Should not raise
             pass
 
     def test_traced_decorator_sync(self):
         """Test @traced decorator on sync function."""
+
         @traced(name="test_function")
         def my_function(x):
             return x * 2
@@ -88,6 +91,7 @@ class TestTracing:
     @pytest.mark.asyncio
     async def test_traced_decorator_async(self):
         """Test @traced decorator on async function."""
+
         @traced(name="async_test")
         async def my_async_function(x):
             return x * 3
@@ -97,6 +101,7 @@ class TestTracing:
 
     def test_traced_decorator_with_exception(self):
         """Test @traced decorator records exceptions."""
+
         @traced(name="error_function", record_exception=True)
         def error_function():
             raise ValueError("Test error")
@@ -111,8 +116,7 @@ class TestTracing:
 
     def test_get_trace_id_no_span(self):
         """Test get_current_trace_id when no span is active."""
-        trace_id = get_current_trace_id()
-        # May be None or a value depending on OpenTelemetry state
+        get_current_trace_id()  # May be None or a value depending on OpenTelemetry state
 
 
 class TestMetrics:
@@ -179,6 +183,7 @@ class TestStructuredLogging:
 
         # Should be valid JSON
         import json
+
         data = json.loads(output)
 
         assert data["message"] == "Test message"

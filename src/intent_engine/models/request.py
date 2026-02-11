@@ -1,6 +1,6 @@
 """Input request models for the intent engine."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -34,7 +34,7 @@ class IntentRequest(BaseModel):
     request_id: str = Field(description="Unique request identifier")
     tenant_id: str = Field(description="Merchant/store identifier")
     channel: InputChannel
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Raw input
     raw_text: str = Field(description="Primary text content")
@@ -67,12 +67,16 @@ class IntentRequest(BaseModel):
         description="Recent clickstream actions",
     )
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "request_id": "req-12345",
-            "tenant_id": "merchant-1",
-            "channel": "chat",
-            "raw_text": "Where is my order #ORD-98765?",
-            "timestamp": "2024-02-09T10:30:00Z",
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "request_id": "req-12345",
+                    "tenant_id": "merchant-1",
+                    "channel": "chat",
+                    "raw_text": "Where is my order #ORD-98765?",
+                    "timestamp": "2024-02-09T10:30:00Z",
+                }
+            ]
         }
-    ]}}
+    }

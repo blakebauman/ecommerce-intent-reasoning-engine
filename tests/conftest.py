@@ -12,7 +12,9 @@ sys.path.insert(0, str(src_path))
 
 # Set test environment variables
 os.environ.setdefault("API_KEY", "test-api-key")
-os.environ.setdefault("DATABASE_URL", "postgresql://intent_engine:intent_engine_dev@localhost:5432/intent_engine")
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql://intent_engine:intent_engine_dev@localhost:5432/intent_engine"
+)
 
 
 @pytest.fixture(scope="session")

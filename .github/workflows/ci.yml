@@ -1,0 +1,68 @@
+# CI: lint, typecheck, format check, and tests
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  check:
+    name: Lint & typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check src/ tests/
+
+      - name: Format check (ruff)
+        run: ruff format src/ tests/ --check
+
+      - name: Type check (mypy)
+        run: mypy src/
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start Postgres and Redis
+        run: |
+          docker-compose up -d postgres redis
+          echo "Waiting for postgres..."
+          timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U intent_engine -d intent_engine; do sleep 1; done'
+          echo "Waiting for redis..."
+          timeout 10 bash -c 'until docker-compose exec -T redis redis-cli ping | grep -q PONG; do sleep 1; done'
+
+      - name: Run tests
+        run: docker-compose run --rm api pytest tests/ -v --tb=short
+        env:
+          API_KEY: test-api-key
+
+  build-prod:
+    name: Build production image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image
+        run: docker build --build-arg INSTALL_DEV=false -t intent-engine:latest .

@@ -37,11 +37,13 @@ class TestMCPServer:
     def test_server_has_list_tools_handler(self, server):
         """Test that server has list_tools handler registered."""
         from mcp.types import ListToolsRequest
+
         assert ListToolsRequest in server.request_handlers
 
     def test_server_has_call_tool_handler(self, server):
         """Test that server has call_tool handler registered."""
         from mcp.types import CallToolRequest
+
         assert CallToolRequest in server.request_handlers
 
 

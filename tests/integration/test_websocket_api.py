@@ -1,12 +1,15 @@
-"""Integration tests for WebSocket API."""
+"""Integration tests for WebSocket API.
 
-import pytest
-import json
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-import sys
+Imports are delayed below to avoid pulling in the full app (and spacy) before mocks.
+"""
+# ruff: noqa: E402
+
 import importlib.util
 import os
+import sys
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 # Helper to load modules directly
@@ -25,30 +28,25 @@ _api_path = os.path.join(_base_path, "src", "intent_engine", "api")
 
 # Pre-load ws_models to prevent api/__init__.py from being triggered
 _ws_models = _load_module_directly(
-    "intent_engine.api.ws_models",
-    os.path.join(_api_path, "ws_models.py")
+    "intent_engine.api.ws_models", os.path.join(_api_path, "ws_models.py")
 )
 WSMessageType = _ws_models.WSMessageType
 
 # Pre-load ws_auth
-_ws_auth = _load_module_directly(
-    "intent_engine.api.ws_auth",
-    os.path.join(_api_path, "ws_auth.py")
-)
+_ws_auth = _load_module_directly("intent_engine.api.ws_auth", os.path.join(_api_path, "ws_auth.py"))
 WebSocketAuthenticator = _ws_auth.WebSocketAuthenticator
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from starlette.testclient import TestClient as StarletteTestClient
+
+from intent_engine.tenancy.middleware import TenantStore
 
 # Import tenancy modules (these don't have problematic imports)
 from intent_engine.tenancy.models import TenantConfig, TenantTier
-from intent_engine.tenancy.middleware import TenantStore
 
 # Load websocket module directly
 _ws_module = _load_module_directly(
-    "intent_engine.api.websocket_direct",
-    os.path.join(_api_path, "websocket.py")
+    "intent_engine.api.websocket_direct", os.path.join(_api_path, "websocket.py")
 )
 ConnectionManager = _ws_module.ConnectionManager
 create_websocket_endpoint = _ws_module.create_websocket_endpoint
@@ -61,27 +59,31 @@ class TestWebSocketEndpoint:
     def tenant_store(self):
         """Create a tenant store with test tenant."""
         store = TenantStore()
-        store.add_tenant(TenantConfig(
-            tenant_id="ws-test-tenant",
-            name="WS Test",
-            tier=TenantTier.PROFESSIONAL,
-            api_key="ws-test-key",
-            websocket_enabled=True,
-        ))
+        store.add_tenant(
+            TenantConfig(
+                tenant_id="ws-test-tenant",
+                name="WS Test",
+                tier=TenantTier.PROFESSIONAL,
+                api_key="ws-test-key",
+                websocket_enabled=True,
+            )
+        )
         return store
 
     @pytest.fixture
     def mock_engine(self):
         """Create a mock intent engine."""
         engine = MagicMock()
-        engine.resolve_text = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {
-                "request_id": "test",
-                "resolved_intents": [],
-                "is_compound": False,
-                "confidence_summary": 0.85,
-            }
-        ))
+        engine.resolve_text = AsyncMock(
+            return_value=MagicMock(
+                model_dump=lambda: {
+                    "request_id": "test",
+                    "resolved_intents": [],
+                    "is_compound": False,
+                    "confidence_summary": 0.85,
+                }
+            )
+        )
         return engine
 
     @pytest.fixture
@@ -137,10 +139,12 @@ class TestWebSocketEndpoint:
             websocket.receive_json()
 
             # Send ping
-            websocket.send_json({
-                "type": "ping",
-                "request_id": "ping-1",
-            })
+            websocket.send_json(
+                {
+                    "type": "ping",
+                    "request_id": "ping-1",
+                }
+            )
 
             # Receive pong
             data = websocket.receive_json()
@@ -156,13 +160,15 @@ class TestWebSocketEndpoint:
             websocket.receive_json()
 
             # Send resolve request
-            websocket.send_json({
-                "type": "resolve",
-                "request_id": "resolve-1",
-                "payload": {
-                    "raw_text": "Where is my order?",
-                },
-            })
+            websocket.send_json(
+                {
+                    "type": "resolve",
+                    "request_id": "resolve-1",
+                    "payload": {
+                        "raw_text": "Where is my order?",
+                    },
+                }
+            )
 
             # May receive reasoning steps (depending on implementation)
             # Then should receive result
@@ -189,13 +195,15 @@ class TestWebSocketEndpoint:
             websocket.receive_json()
 
             # Subscribe to job
-            websocket.send_json({
-                "type": "subscribe",
-                "request_id": "sub-1",
-                "payload": {
-                    "job_id": "job-123",
-                },
-            })
+            websocket.send_json(
+                {
+                    "type": "subscribe",
+                    "request_id": "sub-1",
+                    "payload": {
+                        "job_id": "job-123",
+                    },
+                }
+            )
 
             # Receive subscribed confirmation
             data = websocket.receive_json()
@@ -211,10 +219,12 @@ class TestWebSocketEndpoint:
             websocket.receive_json()
 
             # Send unknown message type
-            websocket.send_json({
-                "type": "unknown_type",
-                "request_id": "unknown-1",
-            })
+            websocket.send_json(
+                {
+                    "type": "unknown_type",
+                    "request_id": "unknown-1",
+                }
+            )
 
             # Should receive error
             data = websocket.receive_json()

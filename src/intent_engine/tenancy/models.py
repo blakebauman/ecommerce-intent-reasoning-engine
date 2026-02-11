@@ -1,6 +1,6 @@
 """Tenant models and configuration."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -73,8 +73,8 @@ class TenantConfig(BaseModel):
     adobe_commerce_enabled: bool = False
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = True
 
     def get_rate_limit(self) -> int:
@@ -101,15 +101,19 @@ class TenantConfig(BaseModel):
             return self.max_websocket_connections
         return TIER_RATE_LIMITS[self.tier]["max_websocket_connections"]
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "tenant_id": "tenant-001",
-            "name": "Acme Corp",
-            "tier": "professional",
-            "api_key": "ak_live_xxx",
-            "shopify_enabled": True,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "tenant_id": "tenant-001",
+                    "name": "Acme Corp",
+                    "tier": "professional",
+                    "api_key": "ak_live_xxx",
+                    "shopify_enabled": True,
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class TenantUsageStats(BaseModel):
@@ -140,13 +144,17 @@ class TenantUsageStats(BaseModel):
     llm_tokens_input: int = 0
     llm_tokens_output: int = 0
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "tenant_id": "tenant-001",
-            "period_start": "2024-01-01T00:00:00Z",
-            "period_end": "2024-01-31T23:59:59Z",
-            "total_requests": 50000,
-            "fast_path_requests": 35000,
-            "reasoning_path_requests": 15000,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "tenant_id": "tenant-001",
+                    "period_start": "2024-01-01T00:00:00Z",
+                    "period_end": "2024-01-31T23:59:59Z",
+                    "total_requests": 50000,
+                    "fast_path_requests": 35000,
+                    "reasoning_path_requests": 15000,
+                }
+            ]
         }
-    ]}}
+    }

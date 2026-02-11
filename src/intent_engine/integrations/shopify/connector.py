@@ -1,12 +1,11 @@
 """Shopify Admin API connector (read-only) with customer profile support."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 
 from intent_engine.integrations.base import (
-    FulfillmentStatus,
     LineItem,
     OrderInfo,
     OrderStatus,
@@ -14,13 +13,17 @@ from intent_engine.integrations.base import (
     ShippingAddress,
     TrackingInfo,
 )
+from intent_engine.integrations.shopify.mapping import (
+    map_fulfillment_status,
+    map_order_status,
+    parse_datetime,
+)
 from intent_engine.models.context import (
     CustomerProfile,
     CustomerTier,
     OrderContext,
     ProductContext,
     ReturnEligibility,
-    WarrantyStatus,
 )
 
 
@@ -100,10 +103,8 @@ class ShopifyConnector(PlatformConnector):
 
     async def get_order_by_number(self, order_number: str) -> OrderInfo | None:
         """Fetch order by customer-facing order number."""
-        # Clean the order number (remove # prefix if present)
         clean_number = order_number.lstrip("#")
 
-        # Search by order number
         data = await self._request(
             "GET",
             "/orders.json",
@@ -111,7 +112,6 @@ class ShopifyConnector(PlatformConnector):
         )
 
         if not data or "orders" not in data or not data["orders"]:
-            # Try without the # prefix
             data = await self._request(
                 "GET",
                 "/orders.json",
@@ -171,12 +171,11 @@ class ShopifyConnector(PlatformConnector):
         try:
             data = await self._request("GET", "/shop.json")
             return data is not None and "shop" in data
-        except Exception:
+        except (httpx.HTTPError, OSError):
             return False
 
-    def _parse_order(self, order_data: dict) -> OrderInfo:
+    def _parse_order(self, order_data: dict[str, Any]) -> OrderInfo:
         """Parse Shopify order data into OrderInfo model."""
-        # Parse line items
         line_items = [
             LineItem(
                 product_id=str(item.get("product_id", "")),
@@ -190,7 +189,6 @@ class ShopifyConnector(PlatformConnector):
             for item in order_data.get("line_items", [])
         ]
 
-        # Parse shipping address
         shipping_address = None
         if addr := order_data.get("shipping_address"):
             shipping_address = ShippingAddress(
@@ -204,7 +202,6 @@ class ShopifyConnector(PlatformConnector):
                 phone=addr.get("phone"),
             )
 
-        # Parse tracking from fulfillments
         tracking = []
         for fulfillment in order_data.get("fulfillments", []):
             if fulfillment.get("tracking_number"):
@@ -217,26 +214,32 @@ class ShopifyConnector(PlatformConnector):
                     )
                 )
 
-        # Parse timestamps
-        created_at = self._parse_datetime(order_data.get("created_at"))
-        updated_at = self._parse_datetime(order_data.get("updated_at"))
+        created_at = parse_datetime(order_data.get("created_at"))
+        updated_at = parse_datetime(order_data.get("updated_at"))
 
-        # Calculate return window
         return_window_ends = None
         if created_at:
             return_window_ends = created_at + timedelta(days=self.return_window_days)
 
-        # Map Shopify status to our status enum
-        status = self._map_status(order_data)
-        fulfillment_status = self._map_fulfillment_status(order_data)
+        status = map_order_status(order_data)
+        fulfillment_status = map_fulfillment_status(order_data)
 
-        # Parse refund info
         refund_amount = None
         if refunds := order_data.get("refunds"):
             refund_amount = sum(
                 float(r.get("total_refund_set", {}).get("shop_money", {}).get("amount", 0))
                 for r in refunds
             )
+
+        shipped_at = None
+        delivered_at = None
+        for f in order_data.get("fulfillments", []):
+            created = parse_datetime(f.get("created_at"))
+            if created and shipped_at is None:
+                shipped_at = created
+            if f.get("shipment_status") == "delivered":
+                delivered_at = parse_datetime(f.get("updated_at")) or created or shipped_at
+                break
 
         return OrderInfo(
             order_id=str(order_data["id"]),
@@ -246,7 +249,7 @@ class ShopifyConnector(PlatformConnector):
             fulfillment_status=fulfillment_status,
             customer_email=order_data.get("email", ""),
             customer_name=f"{order_data.get('customer', {}).get('first_name', '')} "
-                         f"{order_data.get('customer', {}).get('last_name', '')}".strip(),
+            f"{order_data.get('customer', {}).get('last_name', '')}".strip(),
             line_items=line_items,
             subtotal=float(order_data.get("subtotal_price", 0)),
             shipping_cost=float(
@@ -261,83 +264,21 @@ class ShopifyConnector(PlatformConnector):
             tracking=tracking,
             created_at=created_at,
             updated_at=updated_at,
-            is_returnable=return_window_ends is not None and return_window_ends > datetime.utcnow(),
+            is_returnable=return_window_ends is not None
+            and return_window_ends > datetime.now(timezone.utc),
             return_window_ends=return_window_ends,
             refund_amount=refund_amount,
+            shipped_at=shipped_at,
+            delivered_at=delivered_at,
             raw_data=order_data,
         )
-
-    def _map_status(self, order_data: dict) -> OrderStatus:
-        """Map Shopify order status to OrderStatus enum."""
-        financial_status = order_data.get("financial_status", "")
-        fulfillment_status = order_data.get("fulfillment_status")
-        cancelled_at = order_data.get("cancelled_at")
-
-        if cancelled_at:
-            return OrderStatus.CANCELLED
-
-        if financial_status == "refunded":
-            return OrderStatus.REFUNDED
-
-        if financial_status == "partially_refunded":
-            return OrderStatus.PARTIALLY_REFUNDED
-
-        if fulfillment_status == "fulfilled":
-            # Check shipment status from fulfillments
-            for f in order_data.get("fulfillments", []):
-                shipment_status = f.get("shipment_status")
-                if shipment_status == "delivered":
-                    return OrderStatus.DELIVERED
-                elif shipment_status == "out_for_delivery":
-                    return OrderStatus.OUT_FOR_DELIVERY
-                elif shipment_status == "in_transit":
-                    return OrderStatus.IN_TRANSIT
-            return OrderStatus.SHIPPED
-
-        if fulfillment_status == "partial":
-            return OrderStatus.PROCESSING
-
-        if financial_status == "paid":
-            return OrderStatus.CONFIRMED
-
-        if financial_status == "pending":
-            return OrderStatus.PENDING
-
-        return OrderStatus.PROCESSING
-
-    def _map_fulfillment_status(self, order_data: dict) -> FulfillmentStatus:
-        """Map Shopify fulfillment status."""
-        status = order_data.get("fulfillment_status")
-        if status == "fulfilled":
-            return FulfillmentStatus.FULFILLED
-        elif status == "partial":
-            return FulfillmentStatus.PARTIAL
-        return FulfillmentStatus.UNFULFILLED
-
-    def _parse_datetime(self, dt_str: str | None) -> datetime | None:
-        """Parse Shopify datetime string."""
-        if not dt_str:
-            return None
-        try:
-            # Shopify uses ISO 8601 format
-            return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-        except ValueError:
-            return None
 
     # =========================================================================
     # Phase 2: Customer Profile and Context Enrichment Methods
     # =========================================================================
 
     async def get_customer_by_email(self, email: str) -> CustomerProfile | None:
-        """
-        Fetch customer profile by email address.
-
-        Args:
-            email: Customer email address.
-
-        Returns:
-            CustomerProfile if found, None otherwise.
-        """
+        """Fetch customer profile by email address."""
         data = await self._request(
             "GET",
             "/customers/search.json",
@@ -347,19 +288,10 @@ class ShopifyConnector(PlatformConnector):
         if not data or "customers" not in data or not data["customers"]:
             return None
 
-        customer_data = data["customers"][0]
-        return await self._build_customer_profile(customer_data)
+        return await self._build_customer_profile(data["customers"][0])
 
     async def get_customer_by_id(self, customer_id: str) -> CustomerProfile | None:
-        """
-        Fetch customer profile by Shopify customer ID.
-
-        Args:
-            customer_id: Shopify customer ID.
-
-        Returns:
-            CustomerProfile if found, None otherwise.
-        """
+        """Fetch customer profile by Shopify customer ID."""
         data = await self._request("GET", f"/customers/{customer_id}.json")
 
         if not data or "customer" not in data:
@@ -367,23 +299,19 @@ class ShopifyConnector(PlatformConnector):
 
         return await self._build_customer_profile(data["customer"])
 
-    async def _build_customer_profile(self, customer_data: dict) -> CustomerProfile:
+    async def _build_customer_profile(
+        self, customer_data: dict[str, Any]
+    ) -> CustomerProfile:
         """Build CustomerProfile from Shopify customer data."""
         customer_id = str(customer_data["id"])
         email = customer_data.get("email", "")
 
-        # Calculate lifetime value and order count
         total_spent = float(customer_data.get("total_spent", "0"))
         orders_count = customer_data.get("orders_count", 0)
 
-        # Parse first order date
-        first_order_date = self._parse_datetime(customer_data.get("created_at"))
+        first_order_date = parse_datetime(customer_data.get("created_at"))
 
-        # Determine tier based on spending and order history
         tier = self._determine_customer_tier(total_spent, orders_count, customer_data)
-
-        # Get recent activity (would need additional API calls in real implementation)
-        # For now, we estimate based on available data
 
         return CustomerProfile(
             customer_id=customer_id,
@@ -393,8 +321,7 @@ class ShopifyConnector(PlatformConnector):
             lifetime_value=total_spent,
             total_orders=orders_count,
             first_order_date=first_order_date,
-            # Additional fields would require more API calls
-            support_tickets_30d=0,  # Would come from support system
+            support_tickets_30d=0,
             complaints_90d=0,
             returns_90d=0,
             preferred_contact="email",
@@ -407,12 +334,11 @@ class ShopifyConnector(PlatformConnector):
         self,
         total_spent: float,
         orders_count: int,
-        customer_data: dict,
+        customer_data: dict[str, Any],
     ) -> CustomerTier:
         """Determine customer tier based on value and history."""
         tags = customer_data.get("tags", "").lower()
 
-        # Check for explicit tags
         if "vip" in tags:
             return CustomerTier.VIP
         if "premium" in tags:
@@ -422,7 +348,6 @@ class ShopifyConnector(PlatformConnector):
         if "at_risk" in tags or "churn" in tags:
             return CustomerTier.AT_RISK
 
-        # Tier by value
         if total_spent >= 1000 or orders_count >= 20:
             return CustomerTier.VIP
         if total_spent >= 500 or orders_count >= 10:
@@ -433,42 +358,23 @@ class ShopifyConnector(PlatformConnector):
         return CustomerTier.STANDARD
 
     async def get_order_context(self, order_id: str) -> OrderContext | None:
-        """
-        Get enriched order context for policy decisions.
-
-        Args:
-            order_id: Shopify order ID.
-
-        Returns:
-            OrderContext with policy-relevant data.
-        """
+        """Get enriched order context for policy decisions."""
         order_info = await self.get_order(order_id)
         if not order_info:
             return None
-
         return self._build_order_context(order_info)
 
     async def get_order_context_by_number(self, order_number: str) -> OrderContext | None:
-        """
-        Get enriched order context by order number.
-
-        Args:
-            order_number: Customer-facing order number.
-
-        Returns:
-            OrderContext with policy-relevant data.
-        """
+        """Get enriched order context by order number."""
         order_info = await self.get_order_by_number(order_number)
         if not order_info:
             return None
-
         return self._build_order_context(order_info)
 
     def _build_order_context(self, order_info: OrderInfo) -> OrderContext:
         """Build OrderContext from OrderInfo."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
-        # Build product contexts
         items = [
             ProductContext(
                 product_id=item.product_id,
@@ -476,13 +382,12 @@ class ShopifyConnector(PlatformConnector):
                 name=item.name,
                 price=item.price,
                 currency=item.currency,
-                is_returnable=True,  # Would come from product metadata
+                is_returnable=True,
                 return_window_days=self.return_window_days,
             )
             for item in order_info.line_items
         ]
 
-        # Calculate return window status
         days_until_return_expires = None
         is_within_return_window = True
         return_eligibility = ReturnEligibility.ELIGIBLE
@@ -491,7 +396,6 @@ class ShopifyConnector(PlatformConnector):
             delta = order_info.return_window_ends - now
             days_until_return_expires = delta.days
             is_within_return_window = delta.total_seconds() > 0
-
             if not is_within_return_window:
                 return_eligibility = ReturnEligibility.EXPIRED
         elif order_info.created_at:
@@ -499,11 +403,9 @@ class ShopifyConnector(PlatformConnector):
             delta = window_end - now
             days_until_return_expires = delta.days
             is_within_return_window = delta.total_seconds() > 0
-
             if not is_within_return_window:
                 return_eligibility = ReturnEligibility.EXPIRED
 
-        # Extract tracking info
         tracking_number = None
         carrier = None
         tracking_url = None
@@ -513,7 +415,6 @@ class ShopifyConnector(PlatformConnector):
             carrier = first_tracking.carrier
             tracking_url = first_tracking.tracking_url
 
-        # Shipping address as dict
         shipping_address = None
         if order_info.shipping_address:
             addr = order_info.shipping_address
@@ -563,15 +464,6 @@ class ShopifyConnector(PlatformConnector):
         customer_email: str,
         limit: int = 10,
     ) -> list[OrderContext]:
-        """
-        Get order history as OrderContext objects.
-
-        Args:
-            customer_email: Customer email address.
-            limit: Maximum number of orders to return.
-
-        Returns:
-            List of OrderContext objects.
-        """
+        """Get order history as OrderContext objects."""
         orders = await self.get_customer_orders(customer_email, limit)
         return [self._build_order_context(order) for order in orders]

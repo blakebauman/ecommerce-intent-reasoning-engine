@@ -31,6 +31,18 @@ infra:
 down:
     docker-compose down
 
+# Build production image (no dev deps; use with up-prod or your orchestrator)
+build-prod:
+    docker build --build-arg INSTALL_DEV=false -t intent-engine:latest .
+
+# Start with production override (no reload, no source mounts; builds with INSTALL_DEV=false)
+up-prod:
+    docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+# Stop production stack
+down-prod:
+    docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+
 # View Docker logs
 logs service="api":
     docker-compose logs -f {{ service }}
@@ -48,6 +60,22 @@ seed:
 # Seed catalog (clear existing first)
 seed-refresh:
     .venv/bin/python scripts/seed_catalog.py --refresh
+
+# Seed catalog inside API container (uses same DATABASE_URL as the stack)
+seed-in-docker:
+    docker-compose run --rm api python scripts/seed_catalog.py
+
+# Seed catalog in production stack (run after just up-prod; requires postgres/redis up)
+seed-prod:
+    docker-compose -f docker-compose.yml -f docker-compose.prod.yml run --rm api python scripts/seed_catalog.py
+
+# Seed a tenant into DB (when TENANT_STORE_BACKEND=db). Example: just seed-tenant acme "Acme Corp" sk-xxx
+seed-tenant tenant_id name api_key tier="starter":
+    .venv/bin/python scripts/seed_tenant.py --tenant-id {{ tenant_id }} --name "{{ name }}" --api-key {{ api_key }} --tier {{ tier }}
+
+# Run tenants table migration (for existing DBs created before tenants table existed)
+migrate-tenants:
+    docker-compose exec -T postgres psql -U intent_engine -d intent_engine < scripts/migrate_tenants_table.sql
 
 # Connect to PostgreSQL
 psql:
@@ -149,6 +177,10 @@ check: lint typecheck
 # Health check
 health:
     curl -s http://localhost:8000/health | python3 -m json.tool
+
+# Readiness (DB + Redis)
+ready:
+    curl -s http://localhost:8000/ready | python3 -m json.tool
 
 # Test intent resolution (requires API_KEY env var or uses default)
 resolve text:

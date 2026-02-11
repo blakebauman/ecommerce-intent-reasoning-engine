@@ -2,8 +2,9 @@
 
 import functools
 import logging
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import Any, Callable, Generator, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ def get_tracer(name: str = "intent_engine"):
     """
     try:
         from opentelemetry import trace
+
         return trace.get_tracer(name)
     except ImportError:
         return _NoOpTracer()
@@ -90,6 +92,7 @@ def traced(
         async def process_order(order_id: str):
             ...
     """
+
     def decorator(func: F) -> F:
         span_name = name or func.__name__
         tracer = get_tracer(func.__module__)
@@ -130,6 +133,7 @@ def traced(
 def asyncio_check(func: Callable) -> bool:
     """Check if a function is async."""
     import asyncio
+
     return asyncio.iscoroutinefunction(func)
 
 
@@ -137,6 +141,7 @@ def _set_error_status(span) -> None:
     """Set span status to error."""
     try:
         from opentelemetry.trace import StatusCode
+
         span.set_status(StatusCode.ERROR)
     except ImportError:
         pass
@@ -198,6 +203,7 @@ def add_span_attribute(key: str, value: Any) -> None:
     """
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         if span:
             span.set_attribute(key, value)
@@ -215,6 +221,7 @@ def add_span_event(name: str, attributes: dict[str, Any] | None = None) -> None:
     """
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         if span:
             span.add_event(name, attributes or {})
@@ -231,6 +238,7 @@ def get_current_trace_id() -> str | None:
     """
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         if span:
             ctx = span.get_span_context()
@@ -250,6 +258,7 @@ def get_current_span_id() -> str | None:
     """
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         if span:
             ctx = span.get_span_context()

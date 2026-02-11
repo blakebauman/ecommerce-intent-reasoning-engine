@@ -38,6 +38,7 @@ class AnthropicLLMClient:
         if self._client is None:
             try:
                 import anthropic
+
                 self._client = anthropic.AsyncAnthropic(api_key=self.api_key)
             except ImportError:
                 raise ImportError("anthropic package required for LLM features")
@@ -52,6 +53,7 @@ class AnthropicLLMClient:
         )
         return response.content[0].text
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,6 +67,13 @@ INTENT_TO_ACTION: dict[str, ActionType] = {
     "RETURN_EXCHANGE.EXCHANGE_REQUEST": ActionType.INITIATE_EXCHANGE,
     "RETURN_EXCHANGE.REFUND_STATUS": ActionType.PROVIDE_REFUND_STATUS,
     "COMPLAINT.DAMAGED_ITEM": ActionType.CREATE_SUPPORT_TICKET,
+    # Loyalty and shipping
+    "LOYALTY_REWARDS.POINTS_BALANCE": ActionType.PROVIDE_POINTS_BALANCE,
+    "LOYALTY_REWARDS.MEMBER_STATUS": ActionType.PROVIDE_MEMBER_STATUS,
+    "SHIPPING.SHIPPING_OPTIONS": ActionType.PROVIDE_SHIPPING_OPTIONS,
+    "SHIPPING.SHIPPING_COST": ActionType.PROVIDE_SHIPPING_OPTIONS,
+    "SHIPPING.INTERNATIONAL": ActionType.PROVIDE_SHIPPING_OPTIONS,
+    "SHIPPING.DELIVERY_TIME": ActionType.PROVIDE_SHIPPING_OPTIONS,
 }
 
 
@@ -177,6 +186,11 @@ class CustomerServiceAgent:
         self._initialized = False
         logger.info("CustomerServiceAgent shutdown complete")
 
+    @property
+    def intent_engine(self) -> IntentEngine | None:
+        """Intent engine used for classification (for lifecycle router)."""
+        return self._intent_engine
+
     def get_connector(self, platform: str | None = None) -> PlatformConnector | None:
         """Get a platform connector."""
         if platform:
@@ -279,7 +293,9 @@ class CustomerServiceAgent:
         request = IntentRequest(
             request_id=message.message_id,
             tenant_id="agent",
-            channel=InputChannel(message.channel) if message.channel in ["chat", "email", "voice"] else InputChannel.CHAT,
+            channel=InputChannel(message.channel)
+            if message.channel in ["chat", "email", "voice"]
+            else InputChannel.CHAT,
             raw_text=message.text,
             customer_id=message.customer_id,
             customer_tier=context.customer_tier,
@@ -303,7 +319,9 @@ class CustomerServiceAgent:
             "is_compound": result.is_compound,
             "entities": [
                 {
-                    "entity_type": entity.entity_type.value if hasattr(entity.entity_type, 'value') else entity.entity_type,
+                    "entity_type": entity.entity_type.value
+                    if hasattr(entity.entity_type, "value")
+                    else entity.entity_type,
                     "value": entity.value,
                     "confidence": entity.confidence,
                 }
@@ -388,12 +406,16 @@ class CustomerServiceAgent:
 
         # Add escalation if needed
         if intent_result.get("requires_human"):
-            actions.append(AgentAction(
-                action_type=ActionType.ESCALATE_TO_HUMAN,
-                description="Escalate to human agent",
-                parameters={"reason": intent_result.get("human_handoff_reason", "Complex request")},
-                requires_confirmation=False,
-            ))
+            actions.append(
+                AgentAction(
+                    action_type=ActionType.ESCALATE_TO_HUMAN,
+                    description="Escalate to human agent",
+                    parameters={
+                        "reason": intent_result.get("human_handoff_reason", "Complex request")
+                    },
+                    requires_confirmation=False,
+                )
+            )
 
         return actions
 
@@ -435,7 +457,9 @@ class CustomerServiceAgent:
             description = "Initiate return process"
 
         elif action_type == ActionType.CREATE_SUPPORT_TICKET:
-            params["priority"] = "high" if customer_context and customer_context.is_vip else "normal"
+            params["priority"] = (
+                "high" if customer_context and customer_context.is_vip else "normal"
+            )
             description = "Create support ticket for damaged item"
 
         return AgentAction(

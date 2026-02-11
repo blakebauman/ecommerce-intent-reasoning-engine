@@ -2,34 +2,24 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from intent_engine.api.middleware import verify_api_key
 from intent_engine.engine import IntentEngine
+from intent_engine.exceptions import EngineNotReadyError
 from intent_engine.models.request import InputChannel, IntentRequest
 from intent_engine.models.response import ReasoningResult
 
 router = APIRouter()
 
-# Global engine instance (initialized in server.py)
-_engine: IntentEngine | None = None
 
-
-def get_engine() -> IntentEngine:
-    """Get the intent engine instance."""
-    if _engine is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Engine not initialized",
-        )
-    return _engine
-
-
-def set_engine(engine: IntentEngine) -> None:
-    """Set the intent engine instance."""
-    global _engine
-    _engine = engine
+def get_engine(request: Request) -> IntentEngine:
+    """Get the intent engine from app state (injected at startup)."""
+    engine = getattr(request.app.state, "engine", None)
+    if engine is None:
+        raise EngineNotReadyError("Engine not initialized")
+    return engine
 
 
 class ResolveRequest(BaseModel):
@@ -47,14 +37,18 @@ class ResolveRequest(BaseModel):
     order_ids: list[str] = Field(default_factory=list)
     previous_intents: list[str] = Field(default_factory=list)
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "request_id": "req-12345",
-            "tenant_id": "merchant-1",
-            "channel": "chat",
-            "raw_text": "Where is my order #ORD-98765?",
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "request_id": "req-12345",
+                    "tenant_id": "merchant-1",
+                    "channel": "chat",
+                    "raw_text": "Where is my order #ORD-98765?",
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class HealthResponse(BaseModel):
@@ -143,7 +137,7 @@ async def health_check(
             embedding_extractor=engine.components.embedding_extractor,
         )
         stats = await catalog_store.get_catalog_stats()
-    except Exception:
+    except (OSError, ValueError):
         stats = None
 
     return HealthResponse(

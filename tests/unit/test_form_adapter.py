@@ -1,7 +1,6 @@
 """Tests for form channel adapter."""
 
 import pytest
-from datetime import datetime
 
 from intent_engine.ingestion.form import FormAdapter
 from intent_engine.models.request import InputChannel

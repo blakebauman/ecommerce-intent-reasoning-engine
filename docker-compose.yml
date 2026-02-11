@@ -50,6 +50,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     volumes:
       - ./src:/app/src
       - ./data:/app/data

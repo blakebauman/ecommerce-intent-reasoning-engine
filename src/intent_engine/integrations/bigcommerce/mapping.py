@@ -6,20 +6,20 @@ from intent_engine.integrations.base import FulfillmentStatus, OrderStatus
 # See: https://developer.bigcommerce.com/docs/rest-management/orders#order-status-codes
 
 BIGCOMMERCE_STATUS_MAP: dict[int, OrderStatus] = {
-    0: OrderStatus.PENDING,          # Incomplete
-    1: OrderStatus.PENDING,          # Pending
-    2: OrderStatus.SHIPPED,          # Shipped
-    3: OrderStatus.PROCESSING,       # Partially Shipped
-    4: OrderStatus.REFUNDED,         # Refunded
-    5: OrderStatus.CANCELLED,        # Cancelled
-    6: OrderStatus.CANCELLED,        # Declined
-    7: OrderStatus.PROCESSING,       # Awaiting Payment
-    8: OrderStatus.PROCESSING,       # Awaiting Pickup
-    9: OrderStatus.PROCESSING,       # Awaiting Shipment
-    10: OrderStatus.DELIVERED,       # Completed
-    11: OrderStatus.PROCESSING,      # Awaiting Fulfillment
-    12: OrderStatus.PROCESSING,      # Manual Verification Required
-    13: OrderStatus.PROCESSING,      # Disputed
+    0: OrderStatus.PENDING,  # Incomplete
+    1: OrderStatus.PENDING,  # Pending
+    2: OrderStatus.SHIPPED,  # Shipped
+    3: OrderStatus.PROCESSING,  # Partially Shipped
+    4: OrderStatus.REFUNDED,  # Refunded
+    5: OrderStatus.CANCELLED,  # Cancelled
+    6: OrderStatus.CANCELLED,  # Declined
+    7: OrderStatus.PROCESSING,  # Awaiting Payment
+    8: OrderStatus.PROCESSING,  # Awaiting Pickup
+    9: OrderStatus.PROCESSING,  # Awaiting Shipment
+    10: OrderStatus.DELIVERED,  # Completed
+    11: OrderStatus.PROCESSING,  # Awaiting Fulfillment
+    12: OrderStatus.PROCESSING,  # Manual Verification Required
+    13: OrderStatus.PROCESSING,  # Disputed
     14: OrderStatus.PARTIALLY_REFUNDED,  # Partially Refunded
 }
 

@@ -1,8 +1,8 @@
 """Unit tests for Redis rate limiter."""
 
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
 
 from intent_engine.tenancy.rate_limiter import RateLimiter, RateLimitExceeded
 

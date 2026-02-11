@@ -122,9 +122,7 @@ class ConflictResolver:
 
         # We have conflicts - handle them
         intent_a, intent_b, conflict_desc = conflicts[0]  # Handle first conflict
-        reasoning.append(
-            f"Detected conflict: {intent_a.intent_code} vs {intent_b.intent_code}"
-        )
+        reasoning.append(f"Detected conflict: {intent_a.intent_code} vs {intent_b.intent_code}")
         reasoning.append(f"Conflict type: {conflict_desc}")
 
         # Determine conflict type
@@ -159,13 +157,9 @@ class ConflictResolver:
 
         # Check for VIP/AT_RISK leniency - may allow both
         if customer_tier and customer_tier.lower() in ("vip", "at_risk"):
-            can_approve_both = self._can_approve_both_for_tier(
-                intent_a, intent_b, customer_tier
-            )
+            can_approve_both = self._can_approve_both_for_tier(intent_a, intent_b, customer_tier)
             if can_approve_both:
-                reasoning.append(
-                    f"{customer_tier.upper()} customer - approving both actions"
-                )
+                reasoning.append(f"{customer_tier.upper()} customer - approving both actions")
                 return ConflictResolutionOutput(
                     resolved_intents=intents,
                     has_conflict=True,
@@ -194,9 +188,7 @@ class ConflictResolver:
         # Apply business priority rules
         resolved = self._apply_priority_rules(intents, intent_a, intent_b)
         if resolved:
-            reasoning.append(
-                f"Applied business priority: {resolved[0].intent_code} preferred"
-            )
+            reasoning.append(f"Applied business priority: {resolved[0].intent_code} preferred")
             return ConflictResolutionOutput(
                 resolved_intents=resolved,
                 has_conflict=True,
@@ -253,10 +245,7 @@ class ConflictResolver:
         # Check for policy violation (e.g., return after window expired)
         if context and context.order:
             if not context.order.is_within_return_window:
-                if any(
-                    "RETURN" in i.intent_code
-                    for i in [intent_a, intent_b]
-                ):
+                if any("RETURN" in i.intent_code for i in [intent_a, intent_b]):
                     return ConflictType.POLICY_VIOLATION
 
         # Check for contradictory policy (actions that logically cannot coexist)
@@ -356,11 +345,7 @@ class ConflictResolver:
             return None
 
         # Keep preferred intent, remove the other conflicting one
-        removed_code = (
-            conflict_b.intent_code
-            if preferred == conflict_a
-            else conflict_a.intent_code
-        )
+        removed_code = conflict_b.intent_code if preferred == conflict_a else conflict_a.intent_code
         return [i for i in intents if i.intent_code != removed_code]
 
     def _can_approve_both_for_tier(
@@ -377,12 +362,8 @@ class ConflictResolver:
         # Don't allow truly contradictory actions even for VIP
         codes = {intent_a.intent_code, intent_b.intent_code}
         contradictory_pairs = {
-            frozenset(
-                ["ORDER_MODIFY.CANCEL_ORDER", "ORDER_MODIFY.EXPEDITE"]
-            ),
-            frozenset(
-                ["ORDER_MODIFY.EXPEDITE", "ORDER_MODIFY.DELAY_SHIPMENT"]
-            ),
+            frozenset(["ORDER_MODIFY.CANCEL_ORDER", "ORDER_MODIFY.EXPEDITE"]),
+            frozenset(["ORDER_MODIFY.EXPEDITE", "ORDER_MODIFY.DELAY_SHIPMENT"]),
         }
 
         if frozenset(codes) in contradictory_pairs:
@@ -445,12 +426,8 @@ class ConflictResolver:
             "CHANGE_ADDRESS": "change the shipping address",
         }
 
-        desc_a = intent_descriptions.get(
-            intent_a.intent, intent_a.intent.lower().replace("_", " ")
-        )
-        desc_b = intent_descriptions.get(
-            intent_b.intent, intent_b.intent.lower().replace("_", " ")
-        )
+        desc_a = intent_descriptions.get(intent_a.intent, intent_a.intent.lower().replace("_", " "))
+        desc_b = intent_descriptions.get(intent_b.intent, intent_b.intent.lower().replace("_", " "))
 
         question = (
             f"I noticed you'd like to both {desc_a} and {desc_b}. "

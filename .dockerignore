@@ -1,0 +1,35 @@
+# Git and env (never copy into image)
+.git
+.gitignore
+.env
+.env.*
+
+# Virtual env and caches
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Tests and tooling (not needed in runtime image)
+tests/
+docs/
+.github/
+.cursor/
+*.md
+!README.md
+
+# IDE and OS
+.idea
+.vscode
+.DS_Store
+*.log
+
+# Docker and compose (shrink context; Dockerfile only COPYs what it needs)
+docker-compose*.yml
+Dockerfile
+.dockerignore

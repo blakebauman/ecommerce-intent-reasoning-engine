@@ -1,7 +1,7 @@
 """Chat channel adapter."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from intent_engine.ingestion.base import ChannelAdapter
@@ -72,7 +72,7 @@ class ChatAdapter(ChannelAdapter):
         request_id = raw_input.get("request_id", str(uuid.uuid4()))
 
         # Parse timestamp
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
         if ts := raw_input.get("timestamp"):
             if isinstance(ts, str):
                 try:

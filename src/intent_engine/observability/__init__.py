@@ -11,7 +11,11 @@ from intent_engine.observability.metrics import (
     record_rate_limit_exceeded,
     record_websocket_connection,
 )
-from intent_engine.observability.telemetry import TelemetryConfig, init_telemetry, shutdown_telemetry
+from intent_engine.observability.telemetry import (
+    TelemetryConfig,
+    init_telemetry,
+    shutdown_telemetry,
+)
 from intent_engine.observability.tracing import (
     get_tracer,
     pipeline_span,

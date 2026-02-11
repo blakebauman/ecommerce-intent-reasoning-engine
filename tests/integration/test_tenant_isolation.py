@@ -1,20 +1,19 @@
 """Integration tests for tenant isolation."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
+from unittest.mock import AsyncMock
 
-from fastapi import FastAPI, Depends
+import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from intent_engine.tenancy.middleware import TenantMiddleware, TenantStore
-from intent_engine.tenancy.models import TenantConfig, TenantTier
 from intent_engine.tenancy.context import (
     get_current_tenant,
     get_current_tenant_id,
     tenant_context,
-    clear_tenant_context,
 )
+from intent_engine.tenancy.middleware import TenantMiddleware, TenantStore
+from intent_engine.tenancy.models import TenantConfig, TenantTier
 from intent_engine.tenancy.rate_limiter import RateLimiter, RateLimitExceeded
 
 
@@ -26,19 +25,23 @@ class TestTenantIsolation:
         """Create a tenant store with multiple tenants."""
         store = TenantStore()
 
-        store.add_tenant(TenantConfig(
-            tenant_id="tenant-a",
-            name="Tenant A",
-            tier=TenantTier.PROFESSIONAL,
-            api_key="key-a",
-        ))
+        store.add_tenant(
+            TenantConfig(
+                tenant_id="tenant-a",
+                name="Tenant A",
+                tier=TenantTier.PROFESSIONAL,
+                api_key="key-a",
+            )
+        )
 
-        store.add_tenant(TenantConfig(
-            tenant_id="tenant-b",
-            name="Tenant B",
-            tier=TenantTier.STARTER,
-            api_key="key-b",
-        ))
+        store.add_tenant(
+            TenantConfig(
+                tenant_id="tenant-b",
+                name="Tenant B",
+                tier=TenantTier.STARTER,
+                api_key="key-b",
+            )
+        )
 
         return store
 
@@ -238,7 +241,7 @@ class TestRateLimitingIntegration:
     @pytest.mark.asyncio
     async def test_different_limits_per_tier(self, mock_redis):
         """Test that different tiers have different limits."""
-        limiter = RateLimiter(
+        RateLimiter(
             redis_client=mock_redis,
             default_rate=100,
             default_burst=10,
@@ -269,13 +272,15 @@ class TestInactiveTenant:
     def app_with_inactive_tenant(self):
         """Create app with an inactive tenant."""
         store = TenantStore()
-        store.add_tenant(TenantConfig(
-            tenant_id="inactive",
-            name="Inactive",
-            tier=TenantTier.STARTER,
-            api_key="inactive-key",
-            is_active=False,
-        ))
+        store.add_tenant(
+            TenantConfig(
+                tenant_id="inactive",
+                name="Inactive",
+                tier=TenantTier.STARTER,
+                api_key="inactive-key",
+                is_active=False,
+            )
+        )
 
         app = FastAPI()
 

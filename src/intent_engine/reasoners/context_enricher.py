@@ -1,11 +1,14 @@
 """Context enricher for pulling live order and customer data."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import cast
 
+import httpx
 import redis.asyncio as redis
+from pydantic import ValidationError
 
-from intent_engine.integrations.base import PlatformConnector
+from intent_engine.integrations.base import OrderInfo, PlatformConnector
 from intent_engine.integrations.shopify import ShopifyConnector
 from intent_engine.models.context import (
     CustomerProfile,
@@ -87,8 +90,8 @@ class ContextEnricher:
                         data_sources.append(f"{self.connector.platform_name}:customer")
 
         # Get recent order history for context
-        if customer_email or (customer and customer.email):
-            email = customer_email or customer.email
+        email = customer_email or (customer.email if customer else None)
+        if email:
             recent_orders = await self._get_recent_orders(email, limit=5)
             if recent_orders:
                 data_sources.append(f"{self.connector.platform_name}:order_history")
@@ -97,7 +100,7 @@ class ContextEnricher:
             customer=customer,
             order=order,
             recent_orders=recent_orders,
-            enriched_at=datetime.utcnow(),
+            enriched_at=datetime.now(timezone.utc),
             data_sources=data_sources,
         )
 
@@ -144,7 +147,7 @@ class ContextEnricher:
             customer=customer,
             order=order,
             recent_orders=recent_orders,
-            enriched_at=datetime.utcnow(),
+            enriched_at=datetime.now(timezone.utc),
             data_sources=data_sources,
         )
 
@@ -152,9 +155,9 @@ class ContextEnricher:
         """Extract customer email from request metadata."""
         # Check raw_metadata
         if email := request.raw_metadata.get("from_email"):
-            return email
+            return cast(str, email)
         if email := request.raw_metadata.get("customer_email"):
-            return email
+            return cast(str, email)
 
         # Check for email in the customer_id if it looks like an email
         if request.customer_id and "@" in request.customer_id:
@@ -173,7 +176,7 @@ class ContextEnricher:
                 if cached:
                     logger.debug(f"Customer profile cache hit: {email}")
                     return CustomerProfile.model_validate_json(cached)
-            except Exception as e:
+            except (redis.RedisError, ValueError, ValidationError) as e:
                 logger.warning(f"Redis cache read failed: {e}")
 
         # Fetch from connector
@@ -194,12 +197,12 @@ class ContextEnricher:
                         self.cache_ttl,
                         profile.model_dump_json(),
                     )
-                except Exception as e:
+                except redis.RedisError as e:
                     logger.warning(f"Redis cache write failed: {e}")
 
             return profile
 
-        except Exception as e:
+        except (OSError, ValueError, httpx.HTTPError) as e:
             logger.error(f"Failed to fetch customer profile: {e}")
             return None
 
@@ -214,7 +217,7 @@ class ContextEnricher:
                 if cached:
                     logger.debug(f"Order context cache hit: {order_id}")
                     return OrderContext.model_validate_json(cached)
-            except Exception as e:
+            except (redis.RedisError, ValueError, ValidationError) as e:
                 logger.warning(f"Redis cache read failed: {e}")
 
         # Fetch from connector
@@ -247,12 +250,12 @@ class ContextEnricher:
                         self.cache_ttl,
                         order.model_dump_json(),
                     )
-                except Exception as e:
+                except redis.RedisError as e:
                     logger.warning(f"Redis cache write failed: {e}")
 
             return order
 
-        except Exception as e:
+        except (OSError, ValueError, httpx.HTTPError) as e:
             logger.error(f"Failed to fetch order context: {e}")
             return None
 
@@ -270,9 +273,10 @@ class ContextEnricher:
                 cached = await self.redis_client.get(cache_key)
                 if cached:
                     import json
+
                     orders_data = json.loads(cached)
                     return [OrderContext.model_validate(o) for o in orders_data]
-            except Exception as e:
+            except (redis.RedisError, ValueError, ValidationError) as e:
                 logger.warning(f"Redis cache read failed: {e}")
 
         # Fetch from connector
@@ -289,22 +293,23 @@ class ContextEnricher:
             if orders and self.redis_client:
                 try:
                     import json
+
                     orders_json = json.dumps([o.model_dump() for o in orders], default=str)
                     await self.redis_client.setex(
                         cache_key,
                         self.cache_ttl,
                         orders_json,
                     )
-                except Exception as e:
+                except redis.RedisError as e:
                     logger.warning(f"Redis cache write failed: {e}")
 
             return orders
 
-        except Exception as e:
+        except (OSError, ValueError, httpx.HTTPError) as e:
             logger.error(f"Failed to fetch order history: {e}")
             return []
 
-    def _order_info_to_context(self, order_info) -> OrderContext:
+    def _order_info_to_context(self, order_info: OrderInfo) -> OrderContext:
         """Convert OrderInfo to OrderContext for non-Shopify connectors."""
         from intent_engine.models.context import ProductContext, ReturnEligibility
 
@@ -320,9 +325,7 @@ class ContextEnricher:
         ]
 
         return_eligibility = (
-            ReturnEligibility.ELIGIBLE
-            if order_info.is_returnable
-            else ReturnEligibility.EXPIRED
+            ReturnEligibility.ELIGIBLE if order_info.is_returnable else ReturnEligibility.EXPIRED
         )
 
         tracking_number = None
